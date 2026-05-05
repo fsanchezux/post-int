@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #fcfcee;
+  --ink: #18181b;
+  --postit-green: #cfe9bc;
+  --postit-blue: #bce7f0;
+  --postit-yellow: #f0ecbc;
+  --postit-red: #f0bcbc;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Whiteboard / posit area — dot grid background */
+.whiteboard {
+  position: relative;
+  min-height: 75vh;
+  background-color: transparent;
+  background-image: radial-gradient(rgba(0, 0, 0, 0.18) 1px, transparent 1px);
+  background-size: 18px 18px;
+  background-position: 0 0;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* Nav pill button styling */
+.nav-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 1.4rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: transform 120ms ease, background-color 120ms ease;
+}
+.nav-pill:hover {
+  transform: translateY(-1px);
+}
+.nav-pill--active {
+  background: var(--postit-yellow);
+  color: #1c1c1c;
+}
+.nav-pill--inactive {
+  background: #111;
+  color: #fff;
+}
+
+/* Round + button (top-right of board) */
+.add-round {
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  background: var(--postit-yellow);
+  color: #111;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  transition: transform 120ms ease;
+}
+.add-round:hover {
+  transform: scale(1.05);
+}
+
+/* Dashboard card surface */
+.stat-card {
+  background: var(--postit-yellow);
+  border-radius: 18px;
+  padding: 1.25rem 1.4rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* Gridstack tweaks (kept for any leftover usage) */
+.grid-stack {
+  background: transparent;
+}
+.grid-stack > .grid-stack-item > .grid-stack-item-content {
+  overflow: visible;
+}
+
+/* Container queries for widget responsiveness */
+.widget-card {
+  container-type: size;
+}
+.widget-card .widget-summary,
+.widget-card .widget-detail,
+.widget-card .widget-toolbar {
+  display: none;
+}
+@container (min-width: 240px) and (min-height: 130px) {
+  .widget-card .widget-summary {
+    display: block;
+  }
+  .widget-card .widget-toolbar {
+    display: flex;
+  }
+}
+@container (min-width: 360px) and (min-height: 240px) {
+  .widget-card .widget-detail {
+    display: block;
+  }
+}
