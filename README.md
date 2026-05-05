@@ -2,7 +2,7 @@
 
 A draggable, post-it-style project management board with an LLM that auto-tags task difficulty, a daily/weekly stats dashboard, a "task roulette" mode for choice paralysis, and public share-links for any post-it.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FREPLACE_ME)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Ffsanchezux%2Fpost-int&env=GROQ_API_KEY,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,UPSTASH_REDIS_REST_URL,UPSTASH_REDIS_REST_TOKEN&envDescription=All%20optional%20%E2%80%94%20see%20.env.example&envLink=https%3A%2F%2Fgithub.com%2Ffsanchezux%2Fpost-int%2Fblob%2Fmain%2F.env.example)
 
 > Built with Next.js 15 (App Router) + React 19 + TypeScript + Tailwind. All required functionality works with **zero configuration** — every external integration is optional and degrades gracefully.
 
