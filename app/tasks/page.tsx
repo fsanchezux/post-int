@@ -23,14 +23,29 @@ const TAG_STYLE = {
 const CARD_W = 360;
 const CARD_GAP = 24;
 
-function TaskCard({ item }: { item: CarouselItem }) {
+const ACTION_BTN_CLS =
+  "w-11 h-11 rounded-full inline-flex items-center justify-center text-lg shadow-md bg-white/85 hover:bg-white transition-transform hover:scale-105 active:scale-95";
+
+function TaskCard({
+  item,
+  active,
+  onDone,
+  onCalendar,
+}: {
+  item: CarouselItem;
+  active: boolean;
+  onDone: () => void;
+  onCalendar: () => void;
+}) {
   const tag = item.task.autoTag ?? "medium";
   const tagS = TAG_STYLE[tag];
   const cardColor = item.project.color || POSTIT_PALETTE[2];
 
+  const stop = (e: React.PointerEvent | React.MouseEvent) => e.stopPropagation();
+
   return (
     <article
-      className="carousel-card rounded-3xl p-6 md:p-8 shadow-xl shrink-0"
+      className="carousel-card relative rounded-3xl p-6 md:p-8 shadow-xl shrink-0"
       style={{
         background: cardColor,
         color: "#1c1c1c",
@@ -38,16 +53,39 @@ function TaskCard({ item }: { item: CarouselItem }) {
         height: 440,
       }}
     >
-      <div className="flex items-center justify-between gap-3 mb-3 md:mb-4">
+      {active && (
+        <div
+          className="absolute top-4 right-4 flex gap-2 z-10"
+          onPointerDown={stop}
+          onMouseDown={stop}
+        >
+          <button
+            onClick={onCalendar}
+            className={ACTION_BTN_CLS}
+            aria-label="Add to Google Calendar"
+            title="Add to Google Calendar"
+          >
+            📅
+          </button>
+          <button
+            onClick={onDone}
+            className={ACTION_BTN_CLS + " bg-zinc-900 text-white hover:bg-zinc-800"}
+            aria-label="Mark done"
+            title="Mark done"
+          >
+            ✓
+          </button>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 mb-3 md:mb-4 pr-28">
         <span
-          className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded"
+          className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded shrink-0"
           style={{ background: tagS.bg, color: tagS.color }}
         >
           {tag}
         </span>
-        <span className="text-xs opacity-70 truncate max-w-[55%]">
-          {item.project.name}
-        </span>
+        <span className="text-xs opacity-70 truncate">{item.project.name}</span>
       </div>
 
       <h2 className="text-xl md:text-3xl font-bold leading-snug">
@@ -71,10 +109,11 @@ export default function TasksPage() {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const offsetRef = useRef(0);
-  const dragRef = useRef<{ active: boolean; startX: number; startOffset: number }>({
+  const dragRef = useRef<{ active: boolean; startX: number; startOffset: number; moved: boolean }>({
     active: false,
     startX: 0,
     startOffset: 0,
+    moved: false,
   });
 
   const items: CarouselItem[] = useMemo(() => {
@@ -128,6 +167,15 @@ export default function TasksPage() {
     [items.length, cardStep, applyTransform, styleCards]
   );
 
+  const goRandom = useCallback(() => {
+    if (items.length <= 1) return;
+    let next = currentIdx;
+    while (next === currentIdx) {
+      next = Math.floor(Math.random() * items.length);
+    }
+    goTo(next, 0.7);
+  }, [items.length, currentIdx, goTo]);
+
   useEffect(() => {
     if (!hydrated || items.length === 0) return;
     requestAnimationFrame(() => {
@@ -153,12 +201,12 @@ export default function TasksPage() {
         goTo(currentIdx - 1);
       } else if ((e.ctrlKey || e.metaKey) && e.key === ",") {
         e.preventDefault();
-        goTo(currentIdx + 1);
+        goRandom();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [goTo, currentIdx]);
+  }, [goTo, goRandom, currentIdx]);
 
   useEffect(() => {
     const el = viewportRef.current;
@@ -179,17 +227,20 @@ export default function TasksPage() {
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (!trackRef.current) return;
+    if ((e.target as HTMLElement).closest("button")) return;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     dragRef.current = {
       active: true,
       startX: e.clientX,
       startOffset: offsetRef.current,
+      moved: false,
     };
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragRef.current.active) return;
     const dx = e.clientX - dragRef.current.startX;
+    if (Math.abs(dx) > 4) dragRef.current.moved = true;
     applyTransform(dragRef.current.startOffset + dx, 0);
   };
 
@@ -202,7 +253,10 @@ export default function TasksPage() {
       /* noop */
     }
     const dx = e.clientX - dragRef.current.startX;
-    if (Math.abs(dx) < 8) return;
+    if (Math.abs(dx) < 8) {
+      goTo(currentIdx, true);
+      return;
+    }
     const moved = Math.round(-dx / cardStep);
     goTo(currentIdx + moved);
   };
@@ -275,19 +329,37 @@ export default function TasksPage() {
 
   return (
     <main className="max-w-6xl mx-auto px-2 md:px-6 pb-12 pt-2">
-      <div className="flex items-center justify-between mb-4 px-4">
+      <div className="flex items-center justify-between gap-4 mb-4 px-4">
         <p className="text-xs uppercase tracking-widest opacity-60">
           {t("Carrusel de tareas", "Carrusel de tasques", "Task carousel")}
         </p>
-        <p className="text-xs opacity-60 hidden sm:block">
-          {t("Arrastra o usa", "Arrossega o usa", "Drag or use")}{" "}
+        <p className="hidden sm:block text-xs opacity-70">
+          {t(
+            "¿No sabes qué tarea hacer? Usa",
+            "No saps quina tasca fer? Usa",
+            "Don't know what to work on? Use"
+          )}{" "}
           <kbd className="px-1.5 py-0.5 rounded border bg-white/60 font-mono">
-            ←
-          </kbd>{" "}
-          <kbd className="px-1.5 py-0.5 rounded border bg-white/60 font-mono">
-            →
+            Ctrl
           </kbd>
+          {" + "}
+          <kbd className="px-1.5 py-0.5 rounded border bg-white/60 font-mono">
+            ,
+          </kbd>{" "}
+          {t(
+            "para una aleatoria",
+            "per una aleatòria",
+            "for a random one"
+          )}
         </p>
+        <button
+          onClick={goRandom}
+          className="sm:hidden add-round"
+          aria-label={t("Tarea aleatoria", "Tasca aleatòria", "Random task")}
+          title={t("Tarea aleatoria", "Tasca aleatòria", "Random task")}
+        >
+          🎲
+        </button>
       </div>
 
       <div
@@ -309,8 +381,14 @@ export default function TasksPage() {
             willChange: "transform",
           }}
         >
-          {items.map((it) => (
-            <TaskCard key={it.task.id} item={it} />
+          {items.map((it, i) => (
+            <TaskCard
+              key={it.task.id}
+              item={it}
+              active={i === currentIdx}
+              onDone={toggleDone}
+              onCalendar={sendToCalendar}
+            />
           ))}
         </div>
       </div>
@@ -322,23 +400,6 @@ export default function TasksPage() {
           aria-label={t("Anterior", "Anterior", "Previous")}
         >
           ←
-        </button>
-        <button
-          onClick={toggleDone}
-          className="px-4 py-2 rounded-full font-semibold text-sm bg-zinc-900 text-white hover:bg-zinc-800"
-        >
-          ✓ {t("Hecho", "Fet", "Done")}
-        </button>
-        <button
-          onClick={sendToCalendar}
-          className="px-4 py-2 rounded-full font-semibold text-sm bg-white/70 hover:bg-white"
-          title={t(
-            "Añadir a Google Calendar",
-            "Afegir a Google Calendar",
-            "Add to Google Calendar"
-          )}
-        >
-          📅 {t("Calendar", "Calendar", "Calendar")}
         </button>
         <button
           onClick={() => goTo(currentIdx + 1)}
