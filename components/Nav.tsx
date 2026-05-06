@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
+import { SyncStatus } from "./SyncStatus";
 
 export function Nav() {
   const { t } = useI18n();
@@ -64,6 +65,7 @@ export function Nav() {
         <div className="mt-3 flex items-center gap-3">
           {!loaded ? null : connected ? (
             <>
+              <SyncStatus />
               <span
                 className="text-xs font-medium opacity-80 max-w-[220px] truncate"
                 title={email ?? ""}

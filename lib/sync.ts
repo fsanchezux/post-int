@@ -23,8 +23,23 @@ type Blob = {
 
 const POLL_MS = 5000;
 
+function hasLocalContent(): boolean {
+  const projects = JSON.parse(localStorage.getItem(SYNCED_KEYS.projects) ?? "[]");
+  const history = JSON.parse(localStorage.getItem(SYNCED_KEYS.history) ?? "[]");
+  return (
+    (Array.isArray(projects) && projects.length > 0) ||
+    (Array.isArray(history) && history.length > 0)
+  );
+}
+
 function readLocal(): { blob: Blob; updatedAt: string | null } {
-  const updatedAt = localStorage.getItem(UPDATED_AT_KEY);
+  let updatedAt = localStorage.getItem(UPDATED_AT_KEY);
+  // If we have content but no timestamp (legacy data, restore, etc.) backfill it
+  // so the very first sync after Google connection still pushes.
+  if (!updatedAt && hasLocalContent()) {
+    updatedAt = new Date().toISOString();
+    localStorage.setItem(UPDATED_AT_KEY, updatedAt);
+  }
   return {
     updatedAt,
     blob: {
