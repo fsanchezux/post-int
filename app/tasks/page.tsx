@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { gsap } from "gsap";
 import { useProjects, useSettings } from "@/lib/storage";
 import { isWithinWorkHours } from "@/lib/today";
 import { recordOutsideHours } from "@/lib/outsideHours";
@@ -32,11 +33,13 @@ function TaskCard({
   className = "",
   style = {},
   onClick,
+  cardRef,
 }: {
   item: CarouselItem;
   className?: string;
   style?: React.CSSProperties;
   onClick?: () => void;
+  cardRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const tag = item.task.autoTag ?? "medium";
   const tagS = TAG_STYLE[tag];
@@ -44,11 +47,12 @@ function TaskCard({
 
   return (
     <article
-      className={`task-card rounded-3xl p-8 shadow-xl ${className}`}
+      ref={cardRef}
+      className={`rounded-3xl p-6 md:p-8 shadow-xl ${className}`}
       style={{ background: cardColor, color: "#1c1c1c", ...style }}
       onClick={onClick}
     >
-      <div className="flex items-center justify-between gap-3 mb-4">
+      <div className="flex items-center justify-between gap-3 mb-3 md:mb-4">
         <span
           className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded"
           style={{ background: tagS.bg, color: tagS.color }}
@@ -60,12 +64,12 @@ function TaskCard({
         </span>
       </div>
 
-      <h2 className="text-2xl md:text-3xl font-bold leading-snug">
+      <h2 className="text-xl md:text-3xl font-bold leading-snug">
         {item.task.text}
       </h2>
 
       {item.project.description && (
-        <p className="mt-3 text-sm opacity-80 line-clamp-3">
+        <p className="mt-2 md:mt-3 text-sm opacity-80 line-clamp-3">
           {item.project.description}
         </p>
       )}
@@ -81,8 +85,11 @@ export default function TasksPage() {
   const [currentIdx, setCurrentIdx] = useState<number | null>(null);
   const [animKey, setAnimKey] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [spinning, setSpinning] = useState(false);
   const initRef = useRef(false);
   const carouselRef = useRef<HTMLDivElement | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const spinRef = useRef<HTMLDivElement | null>(null);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
 
@@ -96,22 +103,97 @@ export default function TasksPage() {
     return out;
   }, [projects]);
 
-  const advance = useCallback(() => {
-    setSeen((prev) => {
-      const next = new Set(prev);
-      if (currentIdx !== null && items[currentIdx]) {
-        next.add(items[currentIdx].task.id);
+  const animateCardIn = useCallback(() => {
+    if (!cardRef.current) return;
+    gsap.fromTo(
+      cardRef.current,
+      { opacity: 0, y: 30, scale: 0.92, rotation: -4 },
+      { opacity: 1, y: 0, scale: 1, rotation: 0, duration: 0.45, ease: "back.out(1.7)" }
+    );
+  }, []);
+
+  useEffect(() => {
+    animateCardIn();
+  }, [animKey, animateCardIn]);
+
+  const advance = useCallback((spin = false) => {
+    if (spin && isMobile) {
+      setSpinning(true);
+      if (spinRef.current) {
+        gsap.to(spinRef.current, {
+          rotation: 720,
+          scale: 0.8,
+          duration: 0.35,
+          ease: "power2.in",
+          onComplete: () => {
+            setSeen((prev) => {
+              const next = new Set(prev);
+              if (currentIdx !== null && items[currentIdx]) {
+                next.add(items[currentIdx].task.id);
+              }
+              let pickFrom = next;
+              if (items.every((it) => pickFrom.has(it.task.id))) {
+                pickFrom = new Set();
+              }
+              const idx = pickRandomIndex(items, pickFrom);
+              setCurrentIdx(idx);
+              setAnimKey((k) => k + 1);
+              return pickFrom;
+            });
+            setSpinning(false);
+            if (spinRef.current) {
+              gsap.fromTo(
+                spinRef.current,
+                { rotation: 0, scale: 0.8, opacity: 0 },
+                { rotation: 0, scale: 1, opacity: 1, duration: 0.4, ease: "back.out(1.7)" }
+              );
+            }
+          },
+        });
       }
-      let pickFrom = next;
-      if (items.every((it) => pickFrom.has(it.task.id))) {
-        pickFrom = new Set();
+    } else {
+      if (cardRef.current) {
+        gsap.to(cardRef.current, {
+          x: -80,
+          opacity: 0,
+          rotation: -6,
+          duration: 0.2,
+          ease: "power2.in",
+          onComplete: () => {
+            setSeen((prev) => {
+              const next = new Set(prev);
+              if (currentIdx !== null && items[currentIdx]) {
+                next.add(items[currentIdx].task.id);
+              }
+              let pickFrom = next;
+              if (items.every((it) => pickFrom.has(it.task.id))) {
+                pickFrom = new Set();
+              }
+              const idx = pickRandomIndex(items, pickFrom);
+              setCurrentIdx(idx);
+              setAnimKey((k) => k + 1);
+              return pickFrom;
+            });
+          },
+        });
+      } else {
+        setSeen((prev) => {
+          const next = new Set(prev);
+          if (currentIdx !== null && items[currentIdx]) {
+            next.add(items[currentIdx].task.id);
+          }
+          let pickFrom = next;
+          if (items.every((it) => pickFrom.has(it.task.id))) {
+            pickFrom = new Set();
+          }
+          const idx = pickRandomIndex(items, pickFrom);
+          setCurrentIdx(idx);
+          setAnimKey((k) => k + 1);
+          return pickFrom;
+        });
       }
-      const idx = pickRandomIndex(items, pickFrom);
-      setCurrentIdx(idx);
-      setAnimKey((k) => k + 1);
-      return pickFrom;
-    });
-  }, [items, currentIdx]);
+    }
+  }, [items, currentIdx, isMobile]);
 
   useEffect(() => {
     if (!hydrated || initRef.current) return;
@@ -193,7 +275,7 @@ export default function TasksPage() {
       return { ...t, done, doneAt: done ? new Date().toISOString() : undefined };
     });
     updateProject(current.project.id, { tasks });
-    setTimeout(advance, 250);
+    setTimeout(() => advance(), 250);
   };
 
   const sendToCalendar = async () => {
@@ -268,17 +350,17 @@ export default function TasksPage() {
 
       <div
         ref={carouselRef}
-        className="relative h-[60vh] grid place-items-center overflow-hidden"
+        className="relative h-[60vh] md:h-[65vh] grid place-items-center overflow-hidden"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
         {prevItem && (
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/4 md:-translate-x-1/3 w-[60%] max-w-sm opacity-40 pointer-events-none select-none">
+          <div className="absolute left-0 md:left-4 top-1/2 -translate-y-1/2 -translate-x-[55%] md:-translate-x-[45%] w-[50%] md:w-[38%] opacity-25 pointer-events-none select-none z-0">
             <TaskCard item={prevItem} className="scale-90" />
           </div>
         )}
         {nextItem && (
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 md:translate-x-1/3 w-[60%] max-w-sm opacity-40 pointer-events-none select-none">
+          <div className="absolute right-0 md:right-4 top-1/2 -translate-y-1/2 translate-x-[55%] md:translate-x-[45%] w-[50%] md:w-[38%] opacity-25 pointer-events-none select-none z-0">
             <TaskCard item={nextItem} className="scale-90" />
           </div>
         )}
@@ -286,10 +368,11 @@ export default function TasksPage() {
         <div
           key={animKey}
           className="w-full max-w-xl z-10"
+          ref={spinRef}
         >
-          <TaskCard item={current} />
+          <TaskCard item={current} cardRef={cardRef} />
 
-          <div className="mt-6 flex flex-wrap gap-2">
+          <div className="mt-4 md:mt-6 flex flex-wrap gap-2">
             <button
               onClick={toggleDone}
               className="px-4 py-2 rounded-full font-semibold text-sm bg-zinc-900 text-white hover:bg-zinc-800"
@@ -309,7 +392,7 @@ export default function TasksPage() {
 
       {isMobile && (
         <button
-          onClick={advance}
+          onClick={() => advance(true)}
           className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-zinc-900 text-white shadow-lg flex items-center justify-center text-xl z-50 hover:bg-zinc-800 active:scale-95 transition-transform"
           aria-label={t("Tarea aleatoria", "Tasca aleatòria", "Random task")}
           title={t("Tarea aleatoria", "Tasca aleatòria", "Random task")}
@@ -325,22 +408,6 @@ export default function TasksPage() {
           `${seen.size} seen this session · ${items.length - seen.size - 1} remaining`
         )}
       </p>
-
-      <style jsx>{`
-        .task-card {
-          animation: slideIn 280ms ease both;
-        }
-        @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateY(8px) scale(0.98) rotate(-1deg);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1) rotate(0deg);
-          }
-        }
-      `}</style>
     </main>
   );
 }
