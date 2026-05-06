@@ -27,6 +27,52 @@ function pickRandomIndex(items: CarouselItem[], seenIds: Set<string>): number | 
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
+function TaskCard({
+  item,
+  className = "",
+  style = {},
+  onClick,
+}: {
+  item: CarouselItem;
+  className?: string;
+  style?: React.CSSProperties;
+  onClick?: () => void;
+}) {
+  const tag = item.task.autoTag ?? "medium";
+  const tagS = TAG_STYLE[tag];
+  const cardColor = item.project.color || POSTIT_PALETTE[2];
+
+  return (
+    <article
+      className={`task-card rounded-3xl p-8 shadow-xl ${className}`}
+      style={{ background: cardColor, color: "#1c1c1c", ...style }}
+      onClick={onClick}
+    >
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <span
+          className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded"
+          style={{ background: tagS.bg, color: tagS.color }}
+        >
+          {tag}
+        </span>
+        <span className="text-xs opacity-70 truncate max-w-[55%]">
+          {item.project.name}
+        </span>
+      </div>
+
+      <h2 className="text-2xl md:text-3xl font-bold leading-snug">
+        {item.task.text}
+      </h2>
+
+      {item.project.description && (
+        <p className="mt-3 text-sm opacity-80 line-clamp-3">
+          {item.project.description}
+        </p>
+      )}
+    </article>
+  );
+}
+
 export default function TasksPage() {
   const { projects, hydrated, updateProject } = useProjects();
   const { settings } = useSettings();
@@ -34,7 +80,11 @@ export default function TasksPage() {
   const [seen, setSeen] = useState<Set<string>>(new Set());
   const [currentIdx, setCurrentIdx] = useState<number | null>(null);
   const [animKey, setAnimKey] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
   const initRef = useRef(false);
+  const carouselRef = useRef<HTMLDivElement | null>(null);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
 
   const items: CarouselItem[] = useMemo(() => {
     const out: CarouselItem[] = [];
@@ -52,7 +102,6 @@ export default function TasksPage() {
       if (currentIdx !== null && items[currentIdx]) {
         next.add(items[currentIdx].task.id);
       }
-      // Pick from items minus next set; if exhausted, reset
       let pickFrom = next;
       if (items.every((it) => pickFrom.has(it.task.id))) {
         pickFrom = new Set();
@@ -64,7 +113,6 @@ export default function TasksPage() {
     });
   }, [items, currentIdx]);
 
-  // Initialize random pick once data is ready.
   useEffect(() => {
     if (!hydrated || initRef.current) return;
     if (items.length > 0) {
@@ -74,7 +122,6 @@ export default function TasksPage() {
     }
   }, [hydrated, items]);
 
-  // Ctrl+, keyboard shortcut.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === ",") {
@@ -94,10 +141,46 @@ export default function TasksPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [advance]);
 
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      advance();
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [advance]);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+      advance();
+    }
+  };
+
   if (!hydrated) return null;
 
   const empty = items.length === 0;
   const current = currentIdx !== null ? items[currentIdx] ?? null : null;
+
+  const prevIdx = currentIdx !== null ? (currentIdx - 1 + items.length) % items.length : null;
+  const nextIdx = currentIdx !== null ? (currentIdx + 1) % items.length : null;
+  const prevItem = prevIdx !== null ? items[prevIdx] : null;
+  const nextItem = nextIdx !== null ? items[nextIdx] : null;
 
   const toggleDone = () => {
     if (!current) return;
@@ -169,10 +252,6 @@ export default function TasksPage() {
     );
   }
 
-  const tag = current.task.autoTag ?? "medium";
-  const tagS = TAG_STYLE[tag];
-  const cardColor = current.project.color || POSTIT_PALETTE[2];
-
   return (
     <main className="max-w-3xl mx-auto px-6 pb-12 pt-2">
       <div className="flex items-center justify-between mb-4">
@@ -187,33 +266,28 @@ export default function TasksPage() {
         </p>
       </div>
 
-      <div className="relative h-[60vh] grid place-items-center">
-        <article
-          key={animKey}
-          className="task-card w-full max-w-xl rounded-3xl p-8 shadow-xl"
-          style={{ background: cardColor, color: "#1c1c1c" }}
-        >
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <span
-              className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded"
-              style={{ background: tagS.bg, color: tagS.color }}
-            >
-              {tag}
-            </span>
-            <span className="text-xs opacity-70 truncate max-w-[55%]">
-              {current.project.name}
-            </span>
+      <div
+        ref={carouselRef}
+        className="relative h-[60vh] grid place-items-center overflow-hidden"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
+        {prevItem && (
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/4 md:-translate-x-1/3 w-[60%] max-w-sm opacity-40 pointer-events-none select-none">
+            <TaskCard item={prevItem} className="scale-90" />
           </div>
+        )}
+        {nextItem && (
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 md:translate-x-1/3 w-[60%] max-w-sm opacity-40 pointer-events-none select-none">
+            <TaskCard item={nextItem} className="scale-90" />
+          </div>
+        )}
 
-          <h2 className="text-2xl md:text-3xl font-bold leading-snug">
-            {current.task.text}
-          </h2>
-
-          {current.project.description && (
-            <p className="mt-3 text-sm opacity-80 line-clamp-3">
-              {current.project.description}
-            </p>
-          )}
+        <div
+          key={animKey}
+          className="w-full max-w-xl z-10"
+        >
+          <TaskCard item={current} />
 
           <div className="mt-6 flex flex-wrap gap-2">
             <button
@@ -229,15 +303,20 @@ export default function TasksPage() {
             >
               📅 {t("Calendar", "Calendar", "Calendar")}
             </button>
-            <button
-              onClick={advance}
-              className="px-4 py-2 rounded-full font-semibold text-sm bg-white/40 hover:bg-white/70 ml-auto"
-            >
-              {t("Siguiente", "Següent", "Next")} →
-            </button>
           </div>
-        </article>
+        </div>
       </div>
+
+      {isMobile && (
+        <button
+          onClick={advance}
+          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-zinc-900 text-white shadow-lg flex items-center justify-center text-xl z-50 hover:bg-zinc-800 active:scale-95 transition-transform"
+          aria-label={t("Tarea aleatoria", "Tasca aleatòria", "Random task")}
+          title={t("Tarea aleatoria", "Tasca aleatòria", "Random task")}
+        >
+          🎲
+        </button>
+      )}
 
       <p className="mt-6 text-center text-xs opacity-50">
         {t(
