@@ -21,11 +21,10 @@ export default function Home() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
   const [zoom, setZoom] = useState(1);
-  const [autoFit, setAutoFit] = useState(true);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const calculateAutoFit = useCallback(() => {
+  const calculateInitialFit = useCallback(() => {
     if (!boardRef.current || !containerRef.current || projects.length === 0) return;
     const containerRect = containerRef.current.getBoundingClientRect();
     const containerW = containerRect.width;
@@ -53,17 +52,10 @@ export default function Home() {
   }, [projects]);
 
   useEffect(() => {
-    if (autoFit && hydrated) {
-      calculateAutoFit();
+    if (hydrated) {
+      calculateInitialFit();
     }
-  }, [hydrated, projects, autoFit, calculateAutoFit]);
-
-  useEffect(() => {
-    if (!autoFit) return;
-    const onResize = () => calculateAutoFit();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [autoFit, calculateAutoFit]);
+  }, [hydrated, calculateInitialFit]);
 
   const handleSave = (project: Project) => {
     if (editing) {
@@ -77,13 +69,45 @@ export default function Home() {
 
   const handleZoomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setZoom(parseFloat(e.target.value));
-    setAutoFit(false);
   };
 
   const handleFitToScreen = () => {
-    setAutoFit(true);
-    calculateAutoFit();
+    calculateInitialFit();
   };
+
+  const handleEdgeZoom = useCallback((positPos: { x: number; y: number }, positSize: { w: number; h: number }) => {
+    if (!containerRef.current) return;
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const containerW = containerRect.width;
+    const containerH = containerRect.height;
+
+    const scaledX = positPos.x * zoom;
+    const scaledY = positPos.y * zoom;
+    const scaledW = positSize.w * zoom;
+    const scaledH = positSize.h * zoom;
+
+    const edgeThreshold = 20;
+    const rightEdge = scaledX + scaledW;
+    const bottomEdge = scaledY + scaledH;
+
+    let needsZoomOut = 1;
+    if (rightEdge > containerW - edgeThreshold) {
+      needsZoomOut = Math.min(needsZoomOut, (containerW - edgeThreshold) / rightEdge);
+    }
+    if (bottomEdge > containerH - edgeThreshold) {
+      needsZoomOut = Math.min(needsZoomOut, (containerH - edgeThreshold) / bottomEdge);
+    }
+    if (scaledX < edgeThreshold) {
+      needsZoomOut = Math.min(needsZoomOut, (containerW - edgeThreshold) / rightEdge);
+    }
+    if (scaledY < edgeThreshold) {
+      needsZoomOut = Math.min(needsZoomOut, (containerH - edgeThreshold) / bottomEdge);
+    }
+
+    if (needsZoomOut < 1) {
+      setZoom((prev) => Math.max(0.2, prev * needsZoomOut));
+    }
+  }, [zoom]);
 
   return (
     <main>
@@ -135,7 +159,6 @@ export default function Home() {
         <div
           ref={containerRef}
           className="whiteboard"
-          style={{ minHeight: "75vh" }}
         >
           <div
             ref={boardRef}
@@ -155,6 +178,7 @@ export default function Home() {
                   onComplete={completeProject}
                   onRemove={removeProject}
                   onEdit={(proj) => setEditing(proj)}
+                  onEdgeZoom={handleEdgeZoom}
                 />
               ))}
 
