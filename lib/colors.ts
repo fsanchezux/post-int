@@ -1,10 +1,9 @@
 import type { Project } from "./types";
 
 export const POSTIT_PALETTE = [
-  "#cfe9bc", // green
-  "#bce7f0", // blue
-  "#f0ecbc", // yellow
-  "#f0bcbc", // red
+  "#5dbf76", // green
+  "#3babff", // blue
+  "#ffbcdf", // pink
 ] as const;
 
 export type PostItColor = (typeof POSTIT_PALETTE)[number];

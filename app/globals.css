@@ -3,12 +3,14 @@
 @tailwind utilities;
 
 :root {
-  --bg: #fcfcee;
+  --bg: #efefef;
   --ink: #18181b;
-  --postit-green: #cfe9bc;
-  --postit-blue: #bce7f0;
-  --postit-yellow: #f0ecbc;
-  --postit-red: #f0bcbc;
+  --postit-green: #5dbf76;
+  --postit-blue: #3babff;
+  --postit-pink: #ffbcdf;
+  --postit-yellow: #ffea73;
+  /* Legacy aliases kept so older callers don't break */
+  --postit-red: var(--postit-pink);
 }
 
 html,
