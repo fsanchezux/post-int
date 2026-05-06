@@ -106,6 +106,31 @@ export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit }: Prop
   }, [dragging, project.id, onUpdate]);
 
   useEffect(() => {
+    if (!dragging) return;
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (!touch) return;
+      const parent = ref.current?.parentElement;
+      if (!parent) return;
+      const parentRect = parent.getBoundingClientRect();
+      onUpdate(project.id, {
+        position: {
+          x: Math.max(0, touch.clientX - parentRect.left - offset.current.x),
+          y: Math.max(0, touch.clientY - parentRect.top - offset.current.y),
+        },
+      });
+    };
+    const onTouchEnd = () => setDragging(false);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
+    return () => {
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [dragging, project.id, onUpdate]);
+
+  useEffect(() => {
     if (!resizing) return;
     const onMove = (e: MouseEvent) => {
       const dx = e.clientX - resizeStart.current.x;
@@ -121,6 +146,28 @@ export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit }: Prop
     return () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+    };
+  }, [resizing, project.id, onUpdate]);
+
+  useEffect(() => {
+    if (!resizing) return;
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (!touch) return;
+      const dx = touch.clientX - resizeStart.current.x;
+      const dy = touch.clientY - resizeStart.current.y;
+      onUpdate(project.id, {
+        width: Math.min(MAX_W, Math.max(MIN_W, resizeStart.current.w + dx)),
+        height: Math.min(MAX_H, Math.max(MIN_H, resizeStart.current.h + dy)),
+      });
+    };
+    const onTouchEnd = () => setResizing(false);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
+    return () => {
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
     };
   }, [resizing, project.id, onUpdate]);
 
@@ -152,6 +199,16 @@ export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit }: Prop
     setDragging(true);
   };
 
+  const startTouchDrag = (e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest("[data-no-drag]")) return;
+    if (!ref.current) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const rect = ref.current.getBoundingClientRect();
+    offset.current = { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+    setDragging(true);
+  };
+
   const startResize = (e: React.MouseEvent) => {
     if (!ref.current) return;
     e.preventDefault();
@@ -160,6 +217,20 @@ export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit }: Prop
     resizeStart.current = {
       x: e.clientX,
       y: e.clientY,
+      w: project.width ?? rect.width,
+      h: project.height ?? rect.height,
+    };
+    setResizing(true);
+  };
+
+  const startTouchResize = (e: React.TouchEvent) => {
+    if (!ref.current) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const rect = ref.current.getBoundingClientRect();
+    resizeStart.current = {
+      x: touch.clientX,
+      y: touch.clientY,
       w: project.width ?? rect.width,
       h: project.height ?? rect.height,
     };
@@ -262,6 +333,7 @@ export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit }: Prop
     <div
       ref={ref}
       onMouseDown={startDrag}
+      onTouchStart={startTouchDrag}
       style={{
         left: project.position.x,
         top: project.position.y,
@@ -283,7 +355,7 @@ export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit }: Prop
         </div>
         <div
           data-no-drag
-          className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 items-center"
+          className="flex gap-1 transition-opacity duration-150 items-center [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
         >
           {project.shareId && (
             <span
@@ -437,7 +509,7 @@ export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit }: Prop
                   </span>
                   <button
                     onClick={() => removeTask(task.id)}
-                    className="opacity-0 group-hover/task:opacity-60 hover:!opacity-100 text-xs"
+                    className="[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/task:opacity-60 hover:!opacity-100 text-xs"
                     aria-label={t("task.delete")}
                   >
                     ✕
@@ -473,6 +545,7 @@ export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit }: Prop
       <div
         data-no-drag
         onMouseDown={startResize}
+        onTouchStart={startTouchResize}
         className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize"
         title="Resize"
       />
