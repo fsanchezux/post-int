@@ -33,7 +33,7 @@ export function SyncStatus() {
       dotClass = "bg-emerald-500";
       break;
     case "idle":
-      label = lastSync ? timeAgo(lastSync) : "✓";
+      label = lastSync ? timeAgo(lastSync) : "";
       dotClass = "bg-emerald-500";
       title = lastSync
         ? `Última sincronización: ${lastSync.toLocaleTimeString("es-ES")}`

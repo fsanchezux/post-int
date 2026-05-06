@@ -7,4 +7,6 @@ out
 .DS_Store
 .share-store
 .claude
+.agents
+skills-lock.json
 tsconfig.tsbuildinfo

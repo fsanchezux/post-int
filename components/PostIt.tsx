@@ -54,7 +54,6 @@ type Props = {
   onComplete: (id: string) => void;
   onRemove: (id: string) => void;
   onEdit: (project: Project) => void;
-  onEdgeZoom?: (pos: { x: number; y: number }, size: { w: number; h: number }) => void;
 };
 
 const MIN_W = 280;
@@ -62,7 +61,7 @@ const MIN_H = 220;
 const MAX_W = 800;
 const MAX_H = 800;
 
-export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit, onEdgeZoom }: Props) {
+export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit }: Props) {
   const { t } = useI18n();
   const { settings } = useSettings();
   const ref = useRef<HTMLDivElement | null>(null);
@@ -92,10 +91,7 @@ export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit, onEdge
       const parentRect = parent.getBoundingClientRect();
       const newX = Math.max(0, e.clientX - parentRect.left - offset.current.x);
       const newY = Math.max(0, e.clientY - parentRect.top - offset.current.y);
-      const w = project.width ?? ref.current?.getBoundingClientRect().width ?? 384;
-      const h = project.height ?? ref.current?.getBoundingClientRect().height ?? 220;
       onUpdate(project.id, { position: { x: newX, y: newY } });
-      onEdgeZoom?.({ x: newX, y: newY }, { w, h });
     };
     const onUp = () => setDragging(false);
     window.addEventListener("mousemove", onMove);
@@ -104,7 +100,7 @@ export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit, onEdge
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [dragging, project.id, onUpdate, onEdgeZoom, project.width, project.height]);
+  }, [dragging, project.id, onUpdate]);
 
   useEffect(() => {
     if (!dragging) return;
@@ -117,10 +113,7 @@ export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit, onEdge
       const parentRect = parent.getBoundingClientRect();
       const newX = Math.max(0, touch.clientX - parentRect.left - offset.current.x);
       const newY = Math.max(0, touch.clientY - parentRect.top - offset.current.y);
-      const w = project.width ?? ref.current?.getBoundingClientRect().width ?? 384;
-      const h = project.height ?? ref.current?.getBoundingClientRect().height ?? 220;
       onUpdate(project.id, { position: { x: newX, y: newY } });
-      onEdgeZoom?.({ x: newX, y: newY }, { w, h });
     };
     const onTouchEnd = () => setDragging(false);
     window.addEventListener("touchmove", onTouchMove, { passive: false });
@@ -129,7 +122,7 @@ export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit, onEdge
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", onTouchEnd);
     };
-  }, [dragging, project.id, onUpdate, onEdgeZoom, project.width, project.height]);
+  }, [dragging, project.id, onUpdate]);
 
   useEffect(() => {
     if (!resizing) return;

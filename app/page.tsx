@@ -75,40 +75,6 @@ export default function Home() {
     calculateInitialFit();
   };
 
-  const handleEdgeZoom = useCallback((positPos: { x: number; y: number }, positSize: { w: number; h: number }) => {
-    if (!containerRef.current) return;
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const containerW = containerRect.width;
-    const containerH = containerRect.height;
-
-    const scaledX = positPos.x * zoom;
-    const scaledY = positPos.y * zoom;
-    const scaledW = positSize.w * zoom;
-    const scaledH = positSize.h * zoom;
-
-    const edgeThreshold = 20;
-    const rightEdge = scaledX + scaledW;
-    const bottomEdge = scaledY + scaledH;
-
-    let needsZoomOut = 1;
-    if (rightEdge > containerW - edgeThreshold) {
-      needsZoomOut = Math.min(needsZoomOut, (containerW - edgeThreshold) / rightEdge);
-    }
-    if (bottomEdge > containerH - edgeThreshold) {
-      needsZoomOut = Math.min(needsZoomOut, (containerH - edgeThreshold) / bottomEdge);
-    }
-    if (scaledX < edgeThreshold) {
-      needsZoomOut = Math.min(needsZoomOut, (containerW - edgeThreshold) / rightEdge);
-    }
-    if (scaledY < edgeThreshold) {
-      needsZoomOut = Math.min(needsZoomOut, (containerH - edgeThreshold) / bottomEdge);
-    }
-
-    if (needsZoomOut < 1) {
-      setZoom((prev) => Math.max(0.2, prev * needsZoomOut));
-    }
-  }, [zoom]);
-
   return (
     <main>
       <section className="max-w-7xl mx-auto px-6 pb-10">
@@ -178,7 +144,6 @@ export default function Home() {
                   onComplete={completeProject}
                   onRemove={removeProject}
                   onEdit={(proj) => setEditing(proj)}
-                  onEdgeZoom={handleEdgeZoom}
                 />
               ))}
 

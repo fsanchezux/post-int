@@ -4,7 +4,7 @@ import { Nav } from "@/components/Nav";
 import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "Posits — Project Management",
+  title: "Post-in't",
   description: "Manage your projects as draggable posits",
 };
 
