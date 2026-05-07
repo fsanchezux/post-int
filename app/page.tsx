@@ -28,7 +28,7 @@ export default function Home() {
         if (!isNaN(parsed) && parsed >= 0.2 && parsed <= 2) return parsed;
       }
     }
-    return 1;
+    return null;
   });
   const [userAdjusted, setUserAdjusted] = useState(false);
   const boardRef = useRef<HTMLDivElement | null>(null);
@@ -62,10 +62,10 @@ export default function Home() {
   }, [projects]);
 
   useEffect(() => {
-    if (hydrated && !userAdjusted) {
+    if (hydrated && zoom === null && !userAdjusted) {
       calculateInitialFit();
     }
-  }, [hydrated, calculateInitialFit, userAdjusted]);
+  }, [hydrated, calculateInitialFit, userAdjusted, zoom]);
 
   useEffect(() => {
     localStorage.setItem("board-zoom", String(zoom));
@@ -97,7 +97,7 @@ export default function Home() {
         <div className="flex items-center justify-end mb-3 gap-3">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => { setUserAdjusted(true); setZoom((z) => Math.max(0.2, z - 0.1)); }}
+              onClick={() => { setUserAdjusted(true); setZoom((z) => Math.max(0.2, (z ?? 1) - 0.1)); }}
               className="w-8 h-8 rounded-full bg-zinc-200 hover:bg-zinc-300 flex items-center justify-center text-lg font-semibold transition-colors"
               aria-label="Zoom out"
             >
@@ -108,13 +108,13 @@ export default function Home() {
               min="0.2"
               max="2"
               step="0.05"
-              value={zoom}
+              value={zoom ?? 1}
               onChange={handleZoomChange}
               className="w-24 sm:w-32 accent-zinc-600"
               aria-label="Zoom level"
             />
             <button
-              onClick={() => { setUserAdjusted(true); setZoom((z) => Math.min(2, z + 0.1)); }}
+              onClick={() => { setUserAdjusted(true); setZoom((z) => Math.min(2, (z ?? 1) + 0.1)); }}
               className="w-8 h-8 rounded-full bg-zinc-200 hover:bg-zinc-300 flex items-center justify-center text-lg font-semibold transition-colors"
               aria-label="Zoom in"
             >
@@ -126,7 +126,7 @@ export default function Home() {
               aria-label="Fit to screen"
               title="Fit to screen"
             >
-              {Math.round(zoom * 100)}%
+              {Math.round((zoom ?? 1) * 100)}%
             </button>
           </div>
           <button
@@ -145,10 +145,10 @@ export default function Home() {
           <div
             ref={boardRef}
             style={{
-              transform: `scale(${zoom})`,
+              transform: zoom !== null ? `scale(${zoom})` : "scale(1)",
               transformOrigin: "top left",
-              width: `${100 / zoom}%`,
-              height: `${100 / zoom}%`,
+              width: zoom !== null ? `${100 / zoom}%` : "100%",
+              height: zoom !== null ? `${100 / zoom}%` : "100%",
             }}
           >
             {hydrated &&
@@ -156,7 +156,7 @@ export default function Home() {
                 <PostIt
                   key={p.id}
                   project={p}
-                  zoom={zoom}
+                  zoom={zoom ?? 1}
                   onUpdate={updateProject}
                   onComplete={completeProject}
                   onRemove={removeProject}
