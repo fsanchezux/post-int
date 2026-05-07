@@ -21,6 +21,7 @@ export default function Home() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [userAdjusted, setUserAdjusted] = useState(false);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -52,10 +53,10 @@ export default function Home() {
   }, [projects]);
 
   useEffect(() => {
-    if (hydrated) {
+    if (hydrated && !userAdjusted) {
       calculateInitialFit();
     }
-  }, [hydrated, calculateInitialFit]);
+  }, [hydrated, calculateInitialFit, userAdjusted]);
 
   const handleSave = (project: Project) => {
     if (editing) {
@@ -68,10 +69,12 @@ export default function Home() {
   };
 
   const handleZoomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUserAdjusted(true);
     setZoom(parseFloat(e.target.value));
   };
 
   const handleFitToScreen = () => {
+    setUserAdjusted(false);
     calculateInitialFit();
   };
 
@@ -81,7 +84,7 @@ export default function Home() {
         <div className="flex items-center justify-end mb-3 gap-3">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setZoom((z) => Math.max(0.2, z - 0.1))}
+              onClick={() => { setUserAdjusted(true); setZoom((z) => Math.max(0.2, z - 0.1)); }}
               className="w-8 h-8 rounded-full bg-zinc-200 hover:bg-zinc-300 flex items-center justify-center text-lg font-semibold transition-colors"
               aria-label="Zoom out"
             >
@@ -98,7 +101,7 @@ export default function Home() {
               aria-label="Zoom level"
             />
             <button
-              onClick={() => setZoom((z) => Math.min(2, z + 0.1))}
+              onClick={() => { setUserAdjusted(true); setZoom((z) => Math.min(2, z + 0.1)); }}
               className="w-8 h-8 rounded-full bg-zinc-200 hover:bg-zinc-300 flex items-center justify-center text-lg font-semibold transition-colors"
               aria-label="Zoom in"
             >

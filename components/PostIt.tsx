@@ -50,6 +50,7 @@ function nextTag(current: DifficultyTag | undefined): DifficultyTag {
 
 type Props = {
   project: Project;
+  zoom: number;
   onUpdate: (id: string, patch: Partial<Project>) => void;
   onComplete: (id: string) => void;
   onRemove: (id: string) => void;
@@ -61,7 +62,7 @@ const MIN_H = 220;
 const MAX_W = 800;
 const MAX_H = 800;
 
-export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit }: Props) {
+export function PostIt({ project, zoom, onUpdate, onComplete, onRemove, onEdit }: Props) {
   const { t } = useI18n();
   const { settings } = useSettings();
   const ref = useRef<HTMLDivElement | null>(null);
@@ -89,8 +90,8 @@ export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit }: Prop
       const parent = ref.current?.parentElement;
       if (!parent) return;
       const parentRect = parent.getBoundingClientRect();
-      const newX = Math.max(0, e.clientX - parentRect.left - offset.current.x);
-      const newY = Math.max(0, e.clientY - parentRect.top - offset.current.y);
+      const newX = Math.max(0, (e.clientX - parentRect.left - offset.current.x) / zoom);
+      const newY = Math.max(0, (e.clientY - parentRect.top - offset.current.y) / zoom);
       onUpdate(project.id, { position: { x: newX, y: newY } });
     };
     const onUp = () => setDragging(false);
@@ -100,7 +101,7 @@ export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit }: Prop
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [dragging, project.id, onUpdate]);
+  }, [dragging, project.id, onUpdate, zoom]);
 
   useEffect(() => {
     if (!dragging) return;
@@ -111,8 +112,8 @@ export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit }: Prop
       const parent = ref.current?.parentElement;
       if (!parent) return;
       const parentRect = parent.getBoundingClientRect();
-      const newX = Math.max(0, touch.clientX - parentRect.left - offset.current.x);
-      const newY = Math.max(0, touch.clientY - parentRect.top - offset.current.y);
+      const newX = Math.max(0, (touch.clientX - parentRect.left - offset.current.x) / zoom);
+      const newY = Math.max(0, (touch.clientY - parentRect.top - offset.current.y) / zoom);
       onUpdate(project.id, { position: { x: newX, y: newY } });
     };
     const onTouchEnd = () => setDragging(false);
@@ -122,13 +123,13 @@ export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit }: Prop
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", onTouchEnd);
     };
-  }, [dragging, project.id, onUpdate]);
+  }, [dragging, project.id, onUpdate, zoom]);
 
   useEffect(() => {
     if (!resizing) return;
     const onMove = (e: MouseEvent) => {
-      const dx = e.clientX - resizeStart.current.x;
-      const dy = e.clientY - resizeStart.current.y;
+      const dx = (e.clientX - resizeStart.current.x) / zoom;
+      const dy = (e.clientY - resizeStart.current.y) / zoom;
       onUpdate(project.id, {
         width: Math.min(MAX_W, Math.max(MIN_W, resizeStart.current.w + dx)),
         height: Math.min(MAX_H, Math.max(MIN_H, resizeStart.current.h + dy)),
@@ -141,7 +142,7 @@ export function PostIt({ project, onUpdate, onComplete, onRemove, onEdit }: Prop
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [resizing, project.id, onUpdate]);
+  }, [resizing, project.id, onUpdate, zoom]);
 
   useEffect(() => {
     if (!resizing) return;

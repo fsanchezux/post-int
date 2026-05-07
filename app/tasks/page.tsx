@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { gsap } from "gsap";
+import { CalendarIcon, CheckIcon } from "@heroicons/react/24/solid";
 import { useProjects, useSettings } from "@/lib/storage";
 import { isWithinWorkHours } from "@/lib/today";
 import { recordOutsideHours } from "@/lib/outsideHours";
@@ -65,7 +66,7 @@ function TaskCard({
             aria-label="Add to Google Calendar"
             title="Add to Google Calendar"
           >
-            📅
+            <CalendarIcon className="w-5 h-5" />
           </button>
           <button
             onClick={onDone}
@@ -73,7 +74,7 @@ function TaskCard({
             aria-label="Mark done"
             title="Mark done"
           >
-            ✓
+            <CheckIcon className="w-5 h-5" />
           </button>
         </div>
       )}
@@ -88,12 +89,12 @@ function TaskCard({
         <span className="text-xs opacity-70 truncate">{item.project.name}</span>
       </div>
 
-      <h2 className="text-xl md:text-3xl font-bold leading-snug">
+      <h2 className="text-xl md:text-3xl font-bold leading-snug line-clamp-4" title={item.task.text}>
         {item.task.text}
       </h2>
 
       {item.project.description && (
-        <p className="mt-2 md:mt-3 text-sm opacity-80 line-clamp-3">
+        <p className="mt-2 md:mt-3 text-sm opacity-80 line-clamp-3" title={item.project.description}>
           {item.project.description}
         </p>
       )}
@@ -106,6 +107,7 @@ export default function TasksPage() {
   const { settings } = useSettings();
   const { language } = useI18n();
   const [currentIdx, setCurrentIdx] = useState(0);
+  const currentIdxRef = useRef(0);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const offsetRef = useRef(0);
@@ -133,7 +135,7 @@ export default function TasksPage() {
     if (!t) return;
     offsetRef.current = offset;
     t.style.transition =
-      duration === 0 ? "none" : `transform ${duration}s cubic-bezier(0.22, 1, 0.36, 1)`;
+      duration === 0 ? "none" : `transform ${duration}s cubic-bezier(0.25, 0.46, 0.45, 0.94)`;
     t.style.transform = `translate3d(${offset}px, 0, 0)`;
   }, []);
 
@@ -159,6 +161,7 @@ export default function TasksPage() {
       if (items.length === 0) return;
       const clamped = ((idx % items.length) + items.length) % items.length;
       setCurrentIdx(clamped);
+      currentIdxRef.current = clamped;
       const offset = -clamped * cardStep;
       const dur = typeof animate === "number" ? animate : animate ? 0.5 : 0;
       applyTransform(offset, dur);
@@ -212,18 +215,50 @@ export default function TasksPage() {
     const el = viewportRef.current;
     if (!el) return;
     let lastWheel = 0;
+    let animating = false;
+    let scrollStreak = 0;
+    let streakTimer: ReturnType<typeof setTimeout>;
     const onWheel = (e: WheelEvent) => {
       const dx = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-      if (Math.abs(dx) < 5) return;
+      if (Math.abs(dx) < 10) return;
       e.preventDefault();
       const now = Date.now();
-      if (now - lastWheel < 600) return;
+      const cooldown = Math.max(300, 900 - scrollStreak * 80);
+      const duration = Math.max(0.35, 1.2 - scrollStreak * 0.1);
+      if (animating || now - lastWheel < cooldown) return;
       lastWheel = now;
-      goTo(currentIdx + (dx > 0 ? 1 : -1), 0.9);
+      animating = true;
+      scrollStreak++;
+      clearTimeout(streakTimer);
+      streakTimer = setTimeout(() => {
+        scrollStreak = 0;
+      }, 2500);
+      const next = currentIdxRef.current + (dx > 0 ? 1 : -1);
+      const clamped = ((next % items.length) + items.length) % items.length;
+      const targetOffset = -clamped * cardStep;
+      setCurrentIdx(clamped);
+      currentIdxRef.current = clamped;
+      gsap.to(trackRef.current, {
+        x: targetOffset,
+        duration,
+        ease: "power3.inOut",
+        overwrite: true,
+        onUpdate: function () {
+          offsetRef.current = (this.targets()[0] as HTMLElement).x || 0;
+        },
+        onComplete: () => {
+          animating = false;
+          offsetRef.current = targetOffset;
+        },
+      });
+      styleCards(clamped);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [goTo, currentIdx]);
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      clearTimeout(streakTimer);
+    };
+  }, [goTo, items.length, cardStep, styleCards]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (!trackRef.current) return;
@@ -392,27 +427,6 @@ export default function TasksPage() {
           ))}
         </div>
       </div>
-
-      <div className="mt-4 flex flex-wrap gap-2 justify-center">
-        <button
-          onClick={() => goTo(currentIdx - 1)}
-          className="px-3 py-2 rounded-full font-semibold text-sm bg-white/70 hover:bg-white"
-          aria-label={t("Anterior", "Anterior", "Previous")}
-        >
-          ←
-        </button>
-        <button
-          onClick={() => goTo(currentIdx + 1)}
-          className="px-3 py-2 rounded-full font-semibold text-sm bg-white/70 hover:bg-white"
-          aria-label={t("Siguiente", "Següent", "Next")}
-        >
-          →
-        </button>
-      </div>
-
-      <p className="mt-4 text-center text-xs opacity-50">
-        {`${currentIdx + 1} / ${items.length}`}
-      </p>
     </main>
   );
 }
