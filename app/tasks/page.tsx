@@ -244,7 +244,7 @@ export default function TasksPage() {
         ease: "power3.inOut",
         overwrite: true,
         onUpdate: function () {
-          offsetRef.current = (this.targets()[0] as HTMLElement).x || 0;
+          offsetRef.current = (this.targets()[0] as any).x || 0;
         },
         onComplete: () => {
           animating = false;
