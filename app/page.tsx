@@ -20,7 +20,16 @@ export default function Home() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("board-zoom");
+      if (saved) {
+        const parsed = parseFloat(saved);
+        if (!isNaN(parsed) && parsed >= 0.2 && parsed <= 2) return parsed;
+      }
+    }
+    return 1;
+  });
   const [userAdjusted, setUserAdjusted] = useState(false);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -57,6 +66,10 @@ export default function Home() {
       calculateInitialFit();
     }
   }, [hydrated, calculateInitialFit, userAdjusted]);
+
+  useEffect(() => {
+    localStorage.setItem("board-zoom", String(zoom));
+  }, [zoom]);
 
   const handleSave = (project: Project) => {
     if (editing) {
