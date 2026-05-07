@@ -143,6 +143,7 @@ export default function Home() {
                 <PostIt
                   key={p.id}
                   project={p}
+                  zoom={zoom}
                   onUpdate={updateProject}
                   onComplete={completeProject}
                   onRemove={removeProject}
