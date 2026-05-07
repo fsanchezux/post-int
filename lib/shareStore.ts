@@ -60,6 +60,7 @@ function fsDriver(): Driver {
     async read(id) {
       try {
         const buf = await fs.readFile(path.join(DIR, `${id}.json`), "utf-8");
+        if (!buf || !buf.trim()) return null;
         return JSON.parse(buf) as SharePayload;
       } catch {
         return null;

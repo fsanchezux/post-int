@@ -8,6 +8,7 @@ import {
 } from "@/lib/shareStore";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
