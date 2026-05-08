@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { SyncStatus } from "./SyncStatus";
+import { ShortcutsModal } from "./ShortcutsModal";
 
 const ROUTES = ["/", "/tasks", "/dashboard", "/history", "/settings"];
 

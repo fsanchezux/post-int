@@ -31,8 +31,12 @@ export default function Home() {
     return null;
   });
   const [userAdjusted, setUserAdjusted] = useState(false);
+  const [panning, setPanning] = useState(false);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const boardRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const panStart = useRef({ x: 0, y: 0 });
+  const panStartOffset = useRef({ x: 0, y: 0 });
 
   const calculateInitialFit = useCallback(() => {
     if (!boardRef.current || !containerRef.current || projects.length === 0) return;
@@ -81,10 +85,63 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.code === "Space" && !e.repeat) {
+        e.preventDefault();
+        setPanning(true);
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        setPanning(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!panning) return;
+      if ((e.target as HTMLElement).closest("[data-no-drag]")) return;
+      panStart.current = { x: e.clientX, y: e.clientY };
+      panStartOffset.current = { ...panOffset };
+      el.setPointerCapture(e.pointerId);
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      if (!panning) return;
+      const dx = e.clientX - panStart.current.x;
+      const dy = e.clientY - panStart.current.y;
+      setPanOffset({
+        x: panStartOffset.current.x + dx,
+        y: panStartOffset.current.y + dy,
+      });
+    };
+    const onPointerUp = () => {
+      if (!panning) return;
+    };
+    el.addEventListener("pointerdown", onPointerDown);
+    el.addEventListener("pointermove", onPointerMove);
+    el.addEventListener("pointerup", onPointerUp);
+    return () => {
+      el.removeEventListener("pointerdown", onPointerDown);
+      el.removeEventListener("pointermove", onPointerMove);
+      el.removeEventListener("pointerup", onPointerUp);
+    };
+  }, [panning, panOffset]);
+
+  useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
-      if (!e.shiftKey) return;
+      if (!e.shiftKey && !e.altKey) return;
       e.preventDefault();
       setUserAdjusted(true);
       setZoom((z) => {
@@ -167,11 +224,12 @@ export default function Home() {
         <div
           ref={containerRef}
           className="whiteboard"
+          style={{ cursor: panning ? "grabbing" : "default" }}
         >
           <div
             ref={boardRef}
             style={{
-              transform: zoom !== null ? `scale(${zoom})` : "scale(1)",
+              transform: zoom !== null ? `scale(${zoom}) translate(${panOffset.x}px, ${panOffset.y}px)` : `translate(${panOffset.x}px, ${panOffset.y}px)`,
               transformOrigin: "top left",
               width: zoom !== null ? `${100 / zoom}%` : "100%",
               height: zoom !== null ? `${100 / zoom}%` : "100%",
