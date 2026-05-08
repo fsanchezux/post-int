@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { SyncStatus } from "./SyncStatus";
 
+const ROUTES = ["/", "/tasks", "/dashboard", "/history", "/settings"];
+
 export function Nav() {
   const { t } = useI18n();
   const pathname = usePathname();
@@ -47,6 +49,36 @@ export function Nav() {
     { href: "/history", label: t("nav.history") },
     { href: "/settings", label: t("nav.settings") },
   ];
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      if (e.key === "Tab" && !e.shiftKey) {
+        e.preventDefault();
+        const currentIdx = ROUTES.findIndex((r) =>
+          r === "/" ? pathname === "/" : pathname?.startsWith(r)
+        );
+        const nextIdx = (currentIdx + 1) % ROUTES.length;
+        router.push(ROUTES[nextIdx]);
+      }
+
+      if (e.key === "." && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        const event = new CustomEvent("shortcut:new-task");
+        window.dispatchEvent(event);
+      }
+
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        const event = new CustomEvent("shortcut:save-task");
+        window.dispatchEvent(event);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pathname, router]);
 
   return (
     <header className="w-full">

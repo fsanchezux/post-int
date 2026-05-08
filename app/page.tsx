@@ -71,6 +71,32 @@ export default function Home() {
     localStorage.setItem("board-zoom", String(zoom));
   }, [zoom]);
 
+  useEffect(() => {
+    const onNewTask = () => {
+      setOpen(true);
+      setEditing(null);
+    };
+    window.addEventListener("shortcut:new-task", onNewTask);
+    return () => window.removeEventListener("shortcut:new-task", onNewTask);
+  }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.shiftKey) return;
+      e.preventDefault();
+      setUserAdjusted(true);
+      setZoom((z) => {
+        const current = z ?? 1;
+        const delta = e.deltaY > 0 ? -0.05 : 0.05;
+        return Math.max(0.2, Math.min(2, current + delta));
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
   const handleSave = (project: Project) => {
     if (editing) {
       const { id, ...patch } = project;

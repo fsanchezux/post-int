@@ -96,6 +96,43 @@ export function CreatePostItModal({ open, onClose, onSave, initial }: Props) {
     }
   }, [open, initial]);
 
+  useEffect(() => {
+    const onNewTask = () => {
+      if (!open) {
+        const today = new Date();
+        const inAWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const iso = (d: Date) => d.toISOString().slice(0, 10);
+        setName("");
+        setDescription("");
+        setShowDescription(true);
+        setImportance(3);
+        setPaid(false);
+        setAmount("");
+        setStartDate(iso(today));
+        setEndDate(iso(inAWeek));
+        setEstimatedHours("");
+        setLinks(EMPTY_LINKS);
+        setShowProgress(true);
+        setColor(pickRandomColor());
+        setExistingTasks([]);
+        setTasksText("");
+      }
+    };
+    window.addEventListener("shortcut:new-task", onNewTask);
+    return () => window.removeEventListener("shortcut:new-task", onNewTask);
+  }, [open]);
+
+  useEffect(() => {
+    const onSave = () => {
+      if (open && name.trim()) {
+        const form = document.querySelector("form") as HTMLFormElement | null;
+        if (form) form.requestSubmit();
+      }
+    };
+    window.addEventListener("shortcut:save-task", onSave);
+    return () => window.removeEventListener("shortcut:save-task", onSave);
+  }, [open, name]);
+
   if (!open) return null;
 
   const submit = async (e: React.FormEvent) => {
