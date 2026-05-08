@@ -32,6 +32,7 @@ export default function Home() {
   });
   const [userAdjusted, setUserAdjusted] = useState(false);
   const [panning, setPanning] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const boardRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -113,6 +114,7 @@ export default function Home() {
       if ((e.target as HTMLElement).closest("[data-no-drag]")) return;
       panStart.current = { x: e.clientX, y: e.clientY };
       panStartOffset.current = { ...panOffset };
+      setIsPanning(true);
       el.setPointerCapture(e.pointerId);
     };
     const onPointerMove = (e: PointerEvent) => {
@@ -125,7 +127,7 @@ export default function Home() {
       });
     };
     const onPointerUp = () => {
-      if (!panning) return;
+      setIsPanning(false);
     };
     el.addEventListener("pointerdown", onPointerDown);
     el.addEventListener("pointermove", onPointerMove);
@@ -224,7 +226,7 @@ export default function Home() {
         <div
           ref={containerRef}
           className="whiteboard"
-          style={{ cursor: panning ? "grabbing" : "default" }}
+          style={{ cursor: isPanning ? "grabbing" : panning ? "grab" : "default" }}
         >
           <div
             ref={boardRef}
@@ -233,6 +235,7 @@ export default function Home() {
               transformOrigin: "top left",
               width: zoom !== null ? `${100 / zoom}%` : "100%",
               height: zoom !== null ? `${100 / zoom}%` : "100%",
+              pointerEvents: panning ? "none" : "auto",
             }}
           >
             {hydrated &&
@@ -241,6 +244,7 @@ export default function Home() {
                   key={p.id}
                   project={p}
                   zoom={zoom ?? 1}
+                  disabled={panning}
                   onUpdate={updateProject}
                   onComplete={completeProject}
                   onRemove={removeProject}
