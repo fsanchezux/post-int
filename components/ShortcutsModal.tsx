@@ -16,7 +16,6 @@ type Shortcut = {
 
 const SHORTCUTS: Shortcut[] = [
   { keys: "Tab", description: "Navigate between pages", context: "Global" },
-  { keys: "Space (hold)", description: "Pan the canvas", context: "Board" },
   { keys: "Shift / Alt + Scroll", description: "Zoom in / out", context: "Board" },
   { keys: "Ctrl + .", description: "Create new task", context: "Global" },
   { keys: "Ctrl + Enter", description: "Save current task", context: "Task editor" },

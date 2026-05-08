@@ -51,7 +51,6 @@ function nextTag(current: DifficultyTag | undefined): DifficultyTag {
 type Props = {
   project: Project;
   zoom: number;
-  disabled?: boolean;
   onUpdate: (id: string, patch: Partial<Project>) => void;
   onComplete: (id: string) => void;
   onRemove: (id: string) => void;
@@ -63,7 +62,7 @@ const MIN_H = 220;
 const MAX_W = 800;
 const MAX_H = 800;
 
-export function PostIt({ project, zoom, disabled, onUpdate, onComplete, onRemove, onEdit }: Props) {
+export function PostIt({ project, zoom, onUpdate, onComplete, onRemove, onEdit }: Props) {
   const { t } = useI18n();
   const { settings } = useSettings();
   const ref = useRef<HTMLDivElement | null>(null);
@@ -187,7 +186,6 @@ export function PostIt({ project, zoom, disabled, onUpdate, onComplete, onRemove
   }, [dragging]);
 
   const startDrag = (e: React.MouseEvent) => {
-    if (disabled) return;
     if ((e.target as HTMLElement).closest("[data-no-drag]")) return;
     if (!ref.current) return;
     e.preventDefault();
@@ -197,7 +195,6 @@ export function PostIt({ project, zoom, disabled, onUpdate, onComplete, onRemove
   };
 
   const startTouchDrag = (e: React.TouchEvent) => {
-    if (disabled) return;
     if ((e.target as HTMLElement).closest("[data-no-drag]")) return;
     if (!ref.current) return;
     const touch = e.touches[0];
