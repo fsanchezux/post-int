@@ -31,6 +31,7 @@ export default function Home() {
     return null;
   });
   const [userAdjusted, setUserAdjusted] = useState(false);
+  const [selectedPositId, setSelectedPositId] = useState<string | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -79,6 +80,42 @@ export default function Home() {
     window.addEventListener("shortcut:new-task", onNewTask);
     return () => window.removeEventListener("shortcut:new-task", onNewTask);
   }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      if (e.key === "Tab" && e.shiftKey) {
+        e.preventDefault();
+        if (projects.length === 0) return;
+        const currentIdx = projects.findIndex((p) => p.id === selectedPositId);
+        const nextIdx = currentIdx < 0 ? 0 : (currentIdx + 1) % projects.length;
+        setSelectedPositId(projects[nextIdx].id);
+      }
+
+      if (selectedPositId && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+        e.preventDefault();
+        const project = projects.find((p) => p.id === selectedPositId);
+        if (!project) return;
+        const step = e.shiftKey ? 10 : 1;
+        const dx = e.key === "ArrowRight" ? step : e.key === "ArrowLeft" ? -step : 0;
+        const dy = e.key === "ArrowDown" ? step : e.key === "ArrowUp" ? -step : 0;
+        updateProject(selectedPositId, {
+          position: {
+            x: project.position.x + dx,
+            y: project.position.y + dy,
+          },
+        });
+      }
+
+      if (e.key === "Escape") {
+        setSelectedPositId(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [projects, selectedPositId, updateProject]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -183,6 +220,8 @@ export default function Home() {
                   key={p.id}
                   project={p}
                   zoom={zoom ?? 1}
+                  selected={p.id === selectedPositId}
+                  onSelect={() => setSelectedPositId(p.id)}
                   onUpdate={updateProject}
                   onComplete={completeProject}
                   onRemove={removeProject}

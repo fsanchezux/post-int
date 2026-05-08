@@ -16,12 +16,15 @@ type Shortcut = {
 
 const SHORTCUTS: Shortcut[] = [
   { keys: "Tab", description: "Navigate between pages", context: "Global" },
+  { keys: "Shift + Tab", description: "Select next posit", context: "Board" },
+  { keys: "Arrow keys", description: "Move selected posit (1px)", context: "Board" },
+  { keys: "Shift + Arrows", description: "Move selected posit (10px)", context: "Board" },
+  { keys: "Escape", description: "Deselect posit / Close modal", context: "Global" },
   { keys: "Shift / Alt + Scroll", description: "Zoom in / out", context: "Board" },
   { keys: "Ctrl + .", description: "Create new task", context: "Global" },
   { keys: "Ctrl + Enter", description: "Save current task", context: "Task editor" },
   { keys: "← →", description: "Navigate carousel", context: "Tasks" },
   { keys: "Ctrl + ,", description: "Random task", context: "Tasks" },
-  { keys: "Escape", description: "Close editor / modal", context: "Global" },
 ];
 
 export function ShortcutsModal({ open, onClose }: Props) {

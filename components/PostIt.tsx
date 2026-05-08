@@ -51,6 +51,8 @@ function nextTag(current: DifficultyTag | undefined): DifficultyTag {
 type Props = {
   project: Project;
   zoom: number;
+  selected?: boolean;
+  onSelect?: () => void;
   onUpdate: (id: string, patch: Partial<Project>) => void;
   onComplete: (id: string) => void;
   onRemove: (id: string) => void;
@@ -62,7 +64,7 @@ const MIN_H = 220;
 const MAX_W = 800;
 const MAX_H = 800;
 
-export function PostIt({ project, zoom, onUpdate, onComplete, onRemove, onEdit }: Props) {
+export function PostIt({ project, zoom, selected, onSelect, onUpdate, onComplete, onRemove, onEdit }: Props) {
   const { t } = useI18n();
   const { settings } = useSettings();
   const ref = useRef<HTMLDivElement | null>(null);
@@ -329,6 +331,7 @@ export function PostIt({ project, zoom, onUpdate, onComplete, onRemove, onEdit }
       ref={ref}
       onMouseDown={startDrag}
       onTouchStart={startTouchDrag}
+      onClick={onSelect}
       style={{
         left: project.position.x,
         top: project.position.y,
@@ -339,6 +342,8 @@ export function PostIt({ project, zoom, onUpdate, onComplete, onRemove, onEdit }
         cursor: dragging ? "grabbing" : "grab",
         boxShadow: dragging
           ? "0 18px 36px rgba(0,0,0,.28)"
+          : selected
+          ? "0 0 0 3px #3b82f6, 0 4px 14px rgba(0,0,0,.15)"
           : "0 4px 14px rgba(0,0,0,.15)",
       }}
       className="group absolute select-none rounded-lg p-4 flex flex-col"
