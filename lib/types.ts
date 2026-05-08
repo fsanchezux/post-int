@@ -34,6 +34,7 @@ export type Project = {
   position: { x: number; y: number };
   width?: number;
   height?: number;
+  zIndex?: number;
   createdAt: string;
   completedAt?: string;
   estimatedHours?: number;

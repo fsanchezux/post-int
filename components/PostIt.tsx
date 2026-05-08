@@ -52,6 +52,7 @@ type Props = {
   project: Project;
   zoom: number;
   selected?: boolean;
+  zIndex?: number;
   onSelect?: () => void;
   onUpdate: (id: string, patch: Partial<Project>) => void;
   onComplete: (id: string) => void;
@@ -64,7 +65,7 @@ const MIN_H = 220;
 const MAX_W = 800;
 const MAX_H = 800;
 
-export function PostIt({ project, zoom, selected, onSelect, onUpdate, onComplete, onRemove, onEdit }: Props) {
+export function PostIt({ project, zoom, selected, zIndex, onSelect, onUpdate, onComplete, onRemove, onEdit }: Props) {
   const { t } = useI18n();
   const { settings } = useSettings();
   const ref = useRef<HTMLDivElement | null>(null);
@@ -340,6 +341,7 @@ export function PostIt({ project, zoom, selected, onSelect, onUpdate, onComplete
         background: style.bg,
         color: style.text,
         cursor: dragging ? "grabbing" : "grab",
+        zIndex: zIndex ?? 0,
         boxShadow: dragging
           ? "0 18px 36px rgba(0,0,0,.28)"
           : selected

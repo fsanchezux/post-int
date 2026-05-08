@@ -32,6 +32,7 @@ export default function Home() {
   });
   const [userAdjusted, setUserAdjusted] = useState(false);
   const [selectedPositId, setSelectedPositId] = useState<string | null>(null);
+  const [zIndexCounter, setZIndexCounter] = useState(1);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -111,6 +112,18 @@ export default function Home() {
 
       if (e.key === "Escape") {
         setSelectedPositId(null);
+      }
+
+      if (e.key === " " && e.shiftKey) {
+        e.preventDefault();
+        if (!selectedPositId) return;
+        const project = projects.find((p) => p.id === selectedPositId);
+        if (!project) return;
+        const currentZ = project.zIndex ?? 0;
+        const maxZ = Math.max(...projects.map((p) => p.zIndex ?? 0), 0);
+        const newZ = currentZ >= maxZ ? -1 : maxZ + 1;
+        updateProject(selectedPositId, { zIndex: newZ });
+        setZIndexCounter((c) => c + 1);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -221,6 +234,7 @@ export default function Home() {
                   project={p}
                   zoom={zoom ?? 1}
                   selected={p.id === selectedPositId}
+                  zIndex={p.zIndex ?? 0}
                   onSelect={() => setSelectedPositId(p.id)}
                   onUpdate={updateProject}
                   onComplete={completeProject}
