@@ -343,7 +343,7 @@ export function PostIt({ project, zoom, selected, onSelect, onUpdate, onComplete
         boxShadow: dragging
           ? "0 18px 36px rgba(0,0,0,.28)"
           : selected
-          ? "0 0 0 3px #3b82f6, 0 4px 14px rgba(0,0,0,.15)"
+          ? "0 0 0 3px #ffea73, 0 4px 14px rgba(0,0,0,.15)"
           : "0 4px 14px rgba(0,0,0,.15)",
       }}
       className="group absolute select-none rounded-lg p-4 flex flex-col"
