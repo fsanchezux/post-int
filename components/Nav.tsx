@@ -20,6 +20,7 @@ export function Nav() {
   const [connected, setConnected] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   const refresh = () => {
     fetch("/api/auth/google/status", { cache: "no-store" })
@@ -106,6 +107,13 @@ export function Nav() {
                 {email ?? t("settings.connected")}
               </span>
               <button
+                onClick={() => setShortcutsOpen(true)}
+                className="text-xs font-semibold tracking-widest uppercase opacity-80 hover:opacity-100 underline-offset-2 hover:underline"
+                title="Keyboard shortcuts"
+              >
+                 Shortcuts
+              </button>
+              <button
                 onClick={signOut}
                 className="text-xs font-semibold tracking-widest uppercase opacity-80 hover:opacity-100 underline-offset-2 hover:underline"
               >
@@ -113,15 +121,26 @@ export function Nav() {
               </button>
             </>
           ) : (
-            <a
-              href="/api/auth/google"
-              className="text-xs font-semibold tracking-widest uppercase opacity-80 hover:opacity-100"
-            >
-              Link your account
-            </a>
+            <>
+              <button
+                onClick={() => setShortcutsOpen(true)}
+                className="text-xs font-semibold tracking-widest uppercase opacity-80 hover:opacity-100 underline-offset-2 hover:underline"
+                title="Keyboard shortcuts"
+              >
+                ⌨ Shortcuts
+              </button>
+              <a
+                href="/api/auth/google"
+                className="text-xs font-semibold tracking-widest uppercase opacity-80 hover:opacity-100"
+              >
+                Link your account
+              </a>
+            </>
           )}
         </div>
       </div>
+
+      <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
       <nav className="max-w-7xl mx-auto px-6 pt-5 pb-4 flex items-center gap-3 flex-wrap">
         {links.map((l) => {
