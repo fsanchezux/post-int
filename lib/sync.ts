@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { REMOTE_UPDATE_EVENT, SYNCED_KEYS, UPDATED_AT_KEY } from "./storage";
+import {
+  REMOTE_UPDATE_EVENT,
+  SYNC_EMAIL_KEY,
+  SYNCED_KEYS,
+  UPDATED_AT_KEY,
+} from "./storage";
 
 export type SyncStatus =
   | "idle"
@@ -51,6 +56,14 @@ function readLocal(): { blob: Blob; updatedAt: string | null } {
       mood: JSON.parse(localStorage.getItem(SYNCED_KEYS.mood) ?? "\"normal\""),
     },
   };
+}
+
+function wipeLocal() {
+  for (const key of Object.values(SYNCED_KEYS)) {
+    localStorage.removeItem(key);
+  }
+  localStorage.removeItem(UPDATED_AT_KEY);
+  window.dispatchEvent(new Event(REMOTE_UPDATE_EVENT));
 }
 
 function applyRemote(blob: Blob) {
@@ -122,11 +135,29 @@ export function useCloudSync() {
           return;
         }
 
-        const local = readLocal();
+        const currentEmail: string | null = data.email ?? null;
+        const lastEmail = localStorage.getItem(SYNC_EMAIL_KEY);
+        const accountChanged =
+          !!currentEmail && !!lastEmail && currentEmail !== lastEmail;
+
+        if (accountChanged) {
+          // A different Google account just connected.
+          // The local data belongs to the previous account — wipe it before
+          // adopting the new account's remote blob.
+          wipeLocal();
+          lastPushedAt.current = null;
+        }
+
         const remote: Blob | null = data.blob;
 
+        // Re-read local state AFTER the optional wipe.
+        const local = readLocal();
+
         if (!remote) {
+          if (currentEmail) localStorage.setItem(SYNC_EMAIL_KEY, currentEmail);
           if (local.updatedAt) {
+            // No remote blob yet — push whatever is local to claim the
+            // remote storage for this account.
             await push();
           } else {
             setStatus("idle");
@@ -141,7 +172,7 @@ export function useCloudSync() {
           ? new Date(local.updatedAt).getTime()
           : 0;
 
-        if (remoteTime > localTime) {
+        if (accountChanged || remoteTime > localTime) {
           applyRemote(remote);
           lastPushedAt.current = remote.updatedAt;
           setLastSync(new Date());
@@ -152,6 +183,8 @@ export function useCloudSync() {
           lastPushedAt.current = local.updatedAt;
           setStatus("idle");
         }
+
+        if (currentEmail) localStorage.setItem(SYNC_EMAIL_KEY, currentEmail);
       } catch {
         setStatus("error");
       }

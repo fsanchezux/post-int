@@ -8,6 +8,7 @@ const HISTORY_KEY = "pmw:history";
 const SETTINGS_KEY = "pmw:settings";
 const MOOD_KEY = "pmw:mood";
 export const UPDATED_AT_KEY = "pmw:updatedAt";
+export const SYNC_EMAIL_KEY = "pmw:syncEmail";
 export const REMOTE_UPDATE_EVENT = "pmw:remote-update";
 
 export const SYNCED_KEYS = {

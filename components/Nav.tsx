@@ -7,6 +7,12 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { ShortcutsModal } from "./ShortcutsModal";
 import { useBoardUI } from "./BoardUIContext";
+import {
+  REMOTE_UPDATE_EVENT,
+  SYNC_EMAIL_KEY,
+  SYNCED_KEYS,
+  UPDATED_AT_KEY,
+} from "@/lib/storage";
 
 export function Nav() {
   const { t } = useI18n();
@@ -25,6 +31,18 @@ export function Nav() {
       await fetch("/api/auth/google/disconnect", { method: "POST" });
     } catch {
       // ignore — proceed to clear local state regardless
+    }
+    // Wipe per-account data so the next login starts clean for whichever
+    // account links next (prevents the previous user's posits from leaking).
+    try {
+      for (const key of Object.values(SYNCED_KEYS)) {
+        localStorage.removeItem(key);
+      }
+      localStorage.removeItem(UPDATED_AT_KEY);
+      localStorage.removeItem(SYNC_EMAIL_KEY);
+      window.dispatchEvent(new Event(REMOTE_UPDATE_EVENT));
+    } catch {
+      // ignore storage errors
     }
     setConnected(false);
     router.refresh();

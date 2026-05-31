@@ -3,6 +3,7 @@ import {
   SYNC_FILENAME,
   findAppDataFile,
   getAppDataFileContent,
+  getEmailFromCookies,
   getRefreshTokenFromCookies,
   refreshAccessToken,
 } from "@/lib/google";
@@ -12,12 +13,14 @@ export async function GET() {
   if (!refresh) {
     return NextResponse.json({ connected: false });
   }
+  const email = await getEmailFromCookies();
 
   try {
     const { access_token, scope } = await refreshAccessToken(refresh);
     if (!scope?.includes("drive.appdata")) {
       return NextResponse.json({
         connected: true,
+        email,
         scopeMissing: true,
         blob: null,
       });
@@ -25,12 +28,13 @@ export async function GET() {
 
     const file = await findAppDataFile(access_token, SYNC_FILENAME);
     if (!file) {
-      return NextResponse.json({ connected: true, blob: null });
+      return NextResponse.json({ connected: true, email, blob: null });
     }
 
     const blob = await getAppDataFileContent(access_token, file.id);
     return NextResponse.json({
       connected: true,
+      email,
       fileId: file.id,
       modifiedTime: file.modifiedTime,
       blob,
@@ -39,6 +43,7 @@ export async function GET() {
     return NextResponse.json(
       {
         connected: true,
+        email,
         error: e instanceof Error ? e.message : "unknown",
         blob: null,
       },
