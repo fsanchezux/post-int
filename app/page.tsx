@@ -1,14 +1,18 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useProjects } from "@/lib/storage";
 import { PostIt } from "@/components/PostIt";
 import { CreatePostItModal } from "@/components/CreatePostItModal";
+import { PositDetailView } from "@/components/PositDetailView";
+import { VerticalZoom } from "@/components/VerticalZoom";
+import { useBoardUI } from "@/components/BoardUIContext";
 import { useI18n } from "@/lib/i18n";
 import type { Project } from "@/lib/types";
 
 export default function Home() {
   const { t } = useI18n();
+  const { search } = useBoardUI();
   const {
     projects,
     hydrated,
@@ -20,21 +24,35 @@ export default function Home() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
-  const [zoom, setZoom] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("board-zoom");
-      if (saved) {
-        const parsed = parseFloat(saved);
-        if (!isNaN(parsed) && parsed >= 0.2 && parsed <= 2) return parsed;
-      }
-    }
-    return null;
-  });
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [zoom, setZoom] = useState<number | null>(null);
   const [userAdjusted, setUserAdjusted] = useState(false);
-  const [selectedPositId, setSelectedPositId] = useState<string | null>(null);
-  const [zIndexCounter, setZIndexCounter] = useState(1);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("board-zoom");
+    if (saved) {
+      const parsed = parseFloat(saved);
+      if (!isNaN(parsed) && parsed >= 0.2 && parsed <= 2) setZoom(parsed);
+    }
+  }, []);
+
   const boardRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const filteredProjects = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return projects;
+    return projects.filter((p) => {
+      if (p.name.toLowerCase().includes(q)) return true;
+      if (p.description?.toLowerCase().includes(q)) return true;
+      if (p.tasks.some((tk) => tk.text.toLowerCase().includes(q))) return true;
+      return false;
+    });
+  }, [projects, search]);
+
+  const focusedProject = focusedId
+    ? projects.find((p) => p.id === focusedId) ?? null
+    : null;
 
   const calculateInitialFit = useCallback(() => {
     if (!boardRef.current || !containerRef.current || projects.length === 0) return;
@@ -70,7 +88,7 @@ export default function Home() {
   }, [hydrated, calculateInitialFit, userAdjusted, zoom]);
 
   useEffect(() => {
-    localStorage.setItem("board-zoom", String(zoom));
+    if (zoom !== null) localStorage.setItem("board-zoom", String(zoom));
   }, [zoom]);
 
   useEffect(() => {
@@ -81,54 +99,6 @@ export default function Home() {
     window.addEventListener("shortcut:new-task", onNewTask);
     return () => window.removeEventListener("shortcut:new-task", onNewTask);
   }, []);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-
-      if (e.key === "Tab" && e.shiftKey) {
-        e.preventDefault();
-        if (projects.length === 0) return;
-        const currentIdx = projects.findIndex((p) => p.id === selectedPositId);
-        const nextIdx = currentIdx < 0 ? 0 : (currentIdx + 1) % projects.length;
-        setSelectedPositId(projects[nextIdx].id);
-      }
-
-      if (selectedPositId && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
-        e.preventDefault();
-        const project = projects.find((p) => p.id === selectedPositId);
-        if (!project) return;
-        const step = e.shiftKey ? 10 : 1;
-        const dx = e.key === "ArrowRight" ? step : e.key === "ArrowLeft" ? -step : 0;
-        const dy = e.key === "ArrowDown" ? step : e.key === "ArrowUp" ? -step : 0;
-        updateProject(selectedPositId, {
-          position: {
-            x: project.position.x + dx,
-            y: project.position.y + dy,
-          },
-        });
-      }
-
-      if (e.key === "Escape") {
-        setSelectedPositId(null);
-      }
-
-      if (e.key === " " && e.shiftKey) {
-        e.preventDefault();
-        if (!selectedPositId) return;
-        const project = projects.find((p) => p.id === selectedPositId);
-        if (!project) return;
-        const currentZ = project.zIndex ?? 0;
-        const maxZ = Math.max(...projects.map((p) => p.zIndex ?? 0), 0);
-        const newZ = currentZ >= maxZ ? -1 : maxZ + 1;
-        updateProject(selectedPositId, { zIndex: newZ });
-        setZIndexCounter((c) => c + 1);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [projects, selectedPositId, updateProject]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -157,67 +127,40 @@ export default function Home() {
     }
   };
 
-  const handleZoomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUserAdjusted(true);
-    setZoom(parseFloat(e.target.value));
-  };
+  if (focusedProject) {
+    return (
+      <main>
+        <section className="max-w-7xl mx-auto px-6 pb-10">
+          <PositDetailView
+            project={focusedProject}
+            onUpdate={updateProject}
+            onComplete={(id) => {
+              completeProject(id);
+              setFocusedId(null);
+            }}
+            onRemove={(id) => {
+              removeProject(id);
+              setFocusedId(null);
+            }}
+            onEdit={(proj) => setEditing(proj)}
+            onBack={() => setFocusedId(null)}
+          />
+        </section>
 
-  const handleFitToScreen = () => {
-    setUserAdjusted(false);
-    calculateInitialFit();
-  };
+        <CreatePostItModal
+          open={editing !== null}
+          onClose={() => setEditing(null)}
+          onSave={handleSave}
+          initial={editing ?? undefined}
+        />
+      </main>
+    );
+  }
 
   return (
     <main>
       <section className="max-w-7xl mx-auto px-6 pb-10">
-        <div className="flex items-center justify-end mb-3 gap-3">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => { setUserAdjusted(true); setZoom((z) => Math.max(0.2, (z ?? 1) - 0.1)); }}
-              className="w-8 h-8 rounded-full bg-zinc-200 hover:bg-zinc-300 flex items-center justify-center text-lg font-semibold transition-colors"
-              aria-label="Zoom out"
-            >
-              −
-            </button>
-            <input
-              type="range"
-              min="0.2"
-              max="2"
-              step="0.05"
-              value={zoom ?? 1}
-              onChange={handleZoomChange}
-              className="w-24 sm:w-32 accent-zinc-600"
-              aria-label="Zoom level"
-            />
-            <button
-              onClick={() => { setUserAdjusted(true); setZoom((z) => Math.min(2, (z ?? 1) + 0.1)); }}
-              className="w-8 h-8 rounded-full bg-zinc-200 hover:bg-zinc-300 flex items-center justify-center text-lg font-semibold transition-colors"
-              aria-label="Zoom in"
-            >
-              +
-            </button>
-            <button
-              onClick={handleFitToScreen}
-              className="text-xs px-2 py-1 rounded bg-zinc-200 hover:bg-zinc-300 transition-colors"
-              aria-label="Fit to screen"
-              title="Fit to screen"
-            >
-              {Math.round((zoom ?? 1) * 100)}%
-            </button>
-          </div>
-          <button
-            onClick={() => setOpen(true)}
-            className="add-round"
-            aria-label={t("home.createPosit")}
-          >
-            +
-          </button>
-        </div>
-
-        <div
-          ref={containerRef}
-          className="whiteboard"
-        >
+        <div ref={containerRef} className="whiteboard relative">
           <div
             ref={boardRef}
             style={{
@@ -228,29 +171,35 @@ export default function Home() {
             }}
           >
             {hydrated &&
-              projects.map((p) => (
+              filteredProjects.map((p) => (
                 <PostIt
                   key={p.id}
                   project={p}
                   zoom={zoom ?? 1}
-                  selected={p.id === selectedPositId}
                   zIndex={p.zIndex ?? 0}
-                  onSelect={() => setSelectedPositId(p.id)}
+                  onSelect={() => setFocusedId(p.id)}
                   onUpdate={updateProject}
-                  onComplete={completeProject}
-                  onRemove={removeProject}
-                  onEdit={(proj) => setEditing(proj)}
                 />
               ))}
-
-            {hydrated && projects.length === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <p className="text-zinc-500 text-lg">
-                  {t("home.noPosits")}
-                </p>
-              </div>
-            )}
           </div>
+
+          {hydrated && projects.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <p className="text-zinc-500 text-lg">{t("home.noPosits")}</p>
+            </div>
+          )}
+
+          {hydrated && projects.length > 0 && filteredProjects.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <p className="text-zinc-500 text-sm">No posits match &quot;{search}&quot;</p>
+            </div>
+          )}
+
+          <VerticalZoom
+            value={zoom ?? 1}
+            onChange={(v) => { setUserAdjusted(true); setZoom(v); }}
+            onFit={() => { setUserAdjusted(false); calculateInitialFit(); }}
+          />
         </div>
       </section>
 
@@ -266,3 +215,4 @@ export default function Home() {
     </main>
   );
 }
+

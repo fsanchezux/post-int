@@ -1,10 +1,34 @@
-import type { Project } from "./types";
+import type { CSSProperties } from "react";
+import type { DifficultyTag, Project } from "./types";
 
 export const POSTIT_PALETTE = [
   "#5dbf76", // green
   "#3babff", // blue
   "#ffbcdf", // pink
 ] as const;
+
+export const POSTIT_YELLOW = "#ffea73";
+
+export function taskTextStyle(
+  tag: DifficultyTag | undefined,
+  done: boolean
+): { className: string; style: CSSProperties } {
+  if (done) {
+    return {
+      className: "line-through",
+      style: { opacity: 0.45, fontWeight: 500 },
+    };
+  }
+  switch (tag) {
+    case "hard":
+      return { className: "", style: { fontWeight: 800, color: "#0a0a0a" } };
+    case "easy":
+      return { className: "", style: { fontWeight: 500, opacity: 0.55 } };
+    case "medium":
+    default:
+      return { className: "", style: { fontWeight: 700, color: "#1c1c1c" } };
+  }
+}
 
 export type PostItColor = (typeof POSTIT_PALETTE)[number];
 

@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { SyncProvider } from "@/components/SyncProvider";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
+import { BoardUIProvider } from "@/components/BoardUIContext";
 import { I18nProvider } from "@/lib/i18n";
 import { useSettings } from "@/lib/storage";
 import type { Language } from "@/lib/types";
@@ -29,7 +30,9 @@ export function Providers({ children }: { children: ReactNode }) {
     <I18nWrapper>
       <SyncProvider>
         <ConfirmProvider>
-          {children}
+          <BoardUIProvider>
+            {children}
+          </BoardUIProvider>
         </ConfirmProvider>
       </SyncProvider>
     </I18nWrapper>

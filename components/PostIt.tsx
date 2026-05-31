@@ -2,62 +2,21 @@
 
 import { useEffect, useRef, useState } from "react";
 import { animate } from "animejs";
-import type { DifficultyTag, Project } from "@/lib/types";
-import { postItStyle, progress } from "@/lib/colors";
-import { tagToDifficulty } from "@/lib/classifyTask";
-import { uid, useSettings } from "@/lib/storage";
+import type { Project } from "@/lib/types";
+import { postItStyle, progress, taskTextStyle } from "@/lib/colors";
+import { useSettings } from "@/lib/storage";
 import { isWithinWorkHours } from "@/lib/today";
 import { recordOutsideHours } from "@/lib/outsideHours";
-import { useConfirm } from "./ConfirmDialog";
-import { useI18n } from "@/lib/i18n";
-
-function projectToSharePayload(project: Project) {
-  const links = (project.links ?? (project.link ? [{ url: project.link }] : []))
-    .map((l) => (typeof l === "string" ? { url: l } : l))
-    .filter((l) => l.url);
-  return {
-    name: project.name,
-    description: project.description,
-    showDescription: project.showDescription ?? true,
-    color: project.color,
-    links,
-    showProgress: project.showProgress ?? true,
-    startDate: project.startDate,
-    endDate: project.endDate,
-    paid: project.paid,
-    amount: project.amount,
-    tasks: project.tasks.map((t) => ({
-      id: t.id,
-      text: t.text,
-      done: t.done,
-      autoTag: t.autoTag,
-    })),
-  };
-}
-
-const TAG_ORDER: DifficultyTag[] = ["easy", "medium", "hard"];
-
-const TAG_STYLE: Record<DifficultyTag, { bg: string; color: string }> = {
-  easy: { bg: "#111111", color: "#ffffff" },
-  medium: { bg: "rgba(0,0,0,0.10)", color: "#1c1c1c" },
-  hard: { bg: "#ef4444", color: "#ffffff" },
-};
-
-function nextTag(current: DifficultyTag | undefined): DifficultyTag {
-  const idx = current ? TAG_ORDER.indexOf(current) : -1;
-  return TAG_ORDER[(idx + 1) % TAG_ORDER.length];
-}
 
 type Props = {
   project: Project;
   zoom: number;
   selected?: boolean;
   zIndex?: number;
+  interactive?: boolean;
+  showImageStack?: boolean;
   onSelect?: () => void;
   onUpdate: (id: string, patch: Partial<Project>) => void;
-  onComplete: (id: string) => void;
-  onRemove: (id: string) => void;
-  onEdit: (project: Project) => void;
 };
 
 const MIN_W = 280;
@@ -65,33 +24,37 @@ const MIN_H = 220;
 const MAX_W = 800;
 const MAX_H = 800;
 
-export function PostIt({ project, zoom, selected, zIndex, onSelect, onUpdate, onComplete, onRemove, onEdit }: Props) {
-  const { t } = useI18n();
+export function PostIt({
+  project,
+  zoom,
+  selected,
+  zIndex,
+  interactive = true,
+  showImageStack = true,
+  onSelect,
+  onUpdate,
+}: Props) {
   const { settings } = useSettings();
   const ref = useRef<HTMLDivElement | null>(null);
   const [dragging, setDragging] = useState(false);
   const [resizing, setResizing] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const offset = useRef({ x: 0, y: 0 });
   const resizeStart = useRef({ x: 0, y: 0, w: 0, h: 0 });
-  const confirm = useConfirm();
+  const dragMoved = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0 });
 
   const style = postItStyle(project);
   const pct = progress(project);
-  const earnings = project.paid && project.amount ? project.amount : 0;
-
-  const tagLabel = (tag: DifficultyTag): string => {
-    switch (tag) {
-      case "easy": return t("task.easy");
-      case "hard": return t("task.hard");
-      default: return t("task.medium");
-    }
-  };
 
   useEffect(() => {
     if (!dragging) return;
     const onMove = (e: MouseEvent) => {
       const parent = ref.current?.parentElement;
       if (!parent) return;
+      const dx = e.clientX - dragStart.current.x;
+      const dy = e.clientY - dragStart.current.y;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) dragMoved.current = true;
       const parentRect = parent.getBoundingClientRect();
       const newX = Math.max(0, (e.clientX - parentRect.left - offset.current.x) / zoom);
       const newY = Math.max(0, (e.clientY - parentRect.top - offset.current.y) / zoom);
@@ -114,6 +77,9 @@ export function PostIt({ project, zoom, selected, zIndex, onSelect, onUpdate, on
       if (!touch) return;
       const parent = ref.current?.parentElement;
       if (!parent) return;
+      const dx = touch.clientX - dragStart.current.x;
+      const dy = touch.clientY - dragStart.current.y;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) dragMoved.current = true;
       const parentRect = parent.getBoundingClientRect();
       const newX = Math.max(0, (touch.clientX - parentRect.left - offset.current.x) / zoom);
       const newY = Math.max(0, (touch.clientY - parentRect.top - offset.current.y) / zoom);
@@ -148,33 +114,11 @@ export function PostIt({ project, zoom, selected, zIndex, onSelect, onUpdate, on
   }, [resizing, project.id, onUpdate, zoom]);
 
   useEffect(() => {
-    if (!resizing) return;
-    const onTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      if (!touch) return;
-      const dx = touch.clientX - resizeStart.current.x;
-      const dy = touch.clientY - resizeStart.current.y;
-      onUpdate(project.id, {
-        width: Math.min(MAX_W, Math.max(MIN_W, resizeStart.current.w + dx)),
-        height: Math.min(MAX_H, Math.max(MIN_H, resizeStart.current.h + dy)),
-      });
-    };
-    const onTouchEnd = () => setResizing(false);
-    window.addEventListener("touchmove", onTouchMove, { passive: false });
-    window.addEventListener("touchend", onTouchEnd);
-    return () => {
-      window.removeEventListener("touchmove", onTouchMove);
-      window.removeEventListener("touchend", onTouchEnd);
-    };
-  }, [resizing, project.id, onUpdate]);
-
-  useEffect(() => {
     if (!ref.current) return;
     if (dragging) {
       animate(ref.current, {
-        scale: 1.06,
-        rotate: 1.5,
+        scale: 1.04,
+        rotate: 1.2,
         duration: 220,
         ease: "outQuad",
       });
@@ -189,25 +133,32 @@ export function PostIt({ project, zoom, selected, zIndex, onSelect, onUpdate, on
   }, [dragging]);
 
   const startDrag = (e: React.MouseEvent) => {
+    if (!interactive) return;
     if ((e.target as HTMLElement).closest("[data-no-drag]")) return;
     if (!ref.current) return;
     e.preventDefault();
     const rect = ref.current.getBoundingClientRect();
     offset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    dragStart.current = { x: e.clientX, y: e.clientY };
+    dragMoved.current = false;
     setDragging(true);
   };
 
   const startTouchDrag = (e: React.TouchEvent) => {
+    if (!interactive) return;
     if ((e.target as HTMLElement).closest("[data-no-drag]")) return;
     if (!ref.current) return;
     const touch = e.touches[0];
     if (!touch) return;
     const rect = ref.current.getBoundingClientRect();
     offset.current = { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+    dragStart.current = { x: touch.clientX, y: touch.clientY };
+    dragMoved.current = false;
     setDragging(true);
   };
 
   const startResize = (e: React.MouseEvent) => {
+    if (!interactive) return;
     if (!ref.current) return;
     e.preventDefault();
     e.stopPropagation();
@@ -221,18 +172,12 @@ export function PostIt({ project, zoom, selected, zIndex, onSelect, onUpdate, on
     setResizing(true);
   };
 
-  const startTouchResize = (e: React.TouchEvent) => {
-    if (!ref.current) return;
-    const touch = e.touches[0];
-    if (!touch) return;
-    const rect = ref.current.getBoundingClientRect();
-    resizeStart.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-      w: project.width ?? rect.width,
-      h: project.height ?? rect.height,
-    };
-    setResizing(true);
+  const handleClick = () => {
+    if (dragMoved.current) {
+      dragMoved.current = false;
+      return;
+    }
+    onSelect?.();
   };
 
   const toggleTask = (taskId: string) => {
@@ -251,88 +196,57 @@ export function PostIt({ project, zoom, selected, zIndex, onSelect, onUpdate, on
     onUpdate(project.id, { tasks });
   };
 
-  const cycleTaskTag = (taskId: string) => {
-    const tasks = project.tasks.map((t) => {
-      if (t.id !== taskId) return t;
-      const tag = nextTag(t.autoTag);
-      return {
-        ...t,
-        autoTag: tag,
-        autoTagSource: "manual" as const,
-        difficulty: tagToDifficulty(tag),
-      };
-    });
-    onUpdate(project.id, { tasks });
-  };
-
-  const removeTask = (taskId: string) => {
-    onUpdate(project.id, { tasks: project.tasks.filter((t) => t.id !== taskId) });
-  };
-
-  const [sharing, setSharing] = useState(false);
-  const [shareCopied, setShareCopied] = useState(false);
-
-  useEffect(() => {
-    if (!project.shareId) return;
-    const timeout = setTimeout(() => {
-      fetch(`/api/share/${project.shareId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(projectToSharePayload(project)),
-      }).catch(() => {});
-    }, 400);
-    return () => clearTimeout(timeout);
-  }, [project]);
-
-  const startShare = async () => {
-    setSharing(true);
-    try {
-      let id = project.shareId;
-      if (!id) {
-        id = uid();
-        await fetch(`/api/share/${id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(projectToSharePayload(project)),
-        });
-        onUpdate(project.id, { shareId: id });
-      }
-      const url = `${window.location.origin}/share/${id}`;
-      try {
-        await navigator.clipboard.writeText(url);
-        setShareCopied(true);
-        setTimeout(() => setShareCopied(false), 2000);
-      } catch {
-        window.prompt("Copy this link:", url);
-      }
-    } finally {
-      setSharing(false);
-    }
-  };
-
-  const stopShare = async () => {
-    if (!project.shareId) return;
-    const ok = await confirm({
-      title: "Stop sharing",
-      message: "Revoke the public link?",
-      confirmLabel: "Revoke",
-      destructive: true,
-    });
-    if (!ok) return;
-    await fetch(`/api/share/${project.shareId}`, { method: "DELETE" }).catch(() => {});
-    onUpdate(project.id, { shareId: undefined });
-  };
-
-  const allDone = project.tasks.length > 0 && project.tasks.every((t) => t.done);
   const width = project.width ?? 384;
   const height = project.height;
+  const showProgress = project.showProgress ?? true;
+  const showDescription = project.showDescription ?? true;
+  const imageStack = showImageStack ? (project.images ?? []).slice(0, 2) : [];
+  const stackHeight = height ?? 260;
 
   return (
-    <div
+    <>
+      {imageStack.map((img, i) => {
+        const baseOffX = (i + 1) * 18;
+        const baseOffY = (i + 1) * 10;
+        const baseRot = (i % 2 === 0 ? 1 : -1) * (3 + i * 2);
+        const peekX = hovered ? (i + 1) * 30 : 0;
+        const peekY = hovered ? (i + 1) * 14 : 0;
+        const hoverRot = hovered ? (i % 2 === 0 ? 1 : -1) * (4 + i * 2) : 0;
+        return (
+          <div
+            key={img.id}
+            style={{
+              left: project.position.x + baseOffX,
+              top: project.position.y + baseOffY,
+              width,
+              height: stackHeight,
+              backgroundImage: `url(${img.src})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundColor: "#222",
+              transform: `translate(${peekX}px, ${peekY}px) rotate(${baseRot + hoverRot}deg)`,
+              transformOrigin: "center center",
+              transition:
+                "transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 320ms ease",
+              zIndex: (zIndex ?? 0) - 1 - i,
+              borderRadius: 18,
+              boxShadow: hovered
+                ? "0 14px 30px rgba(0,0,0,.28)"
+                : "0 8px 22px rgba(0,0,0,.22)",
+              willChange: "transform",
+            }}
+            className="absolute pointer-events-none"
+            aria-hidden="true"
+          />
+        );
+      })}
+      <div
       ref={ref}
       onMouseDown={startDrag}
       onTouchStart={startTouchDrag}
-      onClick={onSelect}
+      onClick={handleClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         left: project.position.x,
         top: project.position.y,
@@ -340,217 +254,95 @@ export function PostIt({ project, zoom, selected, zIndex, onSelect, onUpdate, on
         height: height ?? "auto",
         background: style.bg,
         color: style.text,
-        cursor: dragging ? "grabbing" : "grab",
+        cursor: interactive ? (dragging ? "grabbing" : "grab") : "default",
         zIndex: zIndex ?? 0,
+        borderRadius: 18,
         boxShadow: dragging
           ? "0 18px 36px rgba(0,0,0,.28)"
           : selected
-          ? "0 0 0 3px #ffea73, 0 4px 14px rgba(0,0,0,.15)"
-          : "0 4px 14px rgba(0,0,0,.15)",
+          ? "0 0 0 3px #ffea73, 0 8px 22px rgba(0,0,0,.18)"
+          : "0 6px 18px rgba(0,0,0,.14)",
       }}
-      className="group absolute select-none rounded-lg p-4 flex flex-col"
+      className="absolute select-none p-6 flex flex-col"
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="font-semibold text-base leading-tight flex items-center gap-1 flex-1">
-          {project.paid && <span aria-label="paid">💰</span>}
-          {project.name}
-        </div>
-        <div
-          data-no-drag
-          className="flex gap-1 transition-opacity duration-150 items-center [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
-        >
-          {project.shareId && (
-            <span
-              className="text-[9px] uppercase font-semibold px-1.5 py-0.5 rounded"
-              style={{ background: "#111", color: "#fff" }}
-              title="Publicly shared"
-            >
-              live
-            </span>
-          )}
-          <button
-            onClick={startShare}
-            disabled={sharing}
-            className="text-sm opacity-70 hover:opacity-100 px-1"
-            aria-label={project.shareId ? t("share.copyLink") : "Share"}
-            title={
-              shareCopied
-                ? t("share.linkCopied")
-                : project.shareId
-                ? t("share.copyLink")
-                : "Share publicly"
-            }
-          >
-            {shareCopied ? "✓" : project.shareId ? "🔗" : "↗"}
-          </button>
-          {project.shareId && (
-            <button
-              onClick={stopShare}
-              className="text-sm opacity-70 hover:opacity-100 px-1"
-              aria-label="Stop sharing"
-              title="Stop sharing"
-            >
-              ⛔
-            </button>
-          )}
-          <button
-            onClick={() => onEdit(project)}
-            className="text-sm opacity-70 hover:opacity-100 px-1"
-            aria-label={t("project.update")}
-            title={t("project.update")}
-          >
-            ✎
-          </button>
-          <button
-            onClick={async () => {
-              const ok = await confirm({
-                title: t("project.delete"),
-                message: (
-                  <>
-                    {t("common.confirm")} <strong>{project.name}</strong>?
-                  </>
-                ),
-                confirmLabel: t("project.delete"),
-                destructive: true,
-              });
-              if (ok) onRemove(project.id);
-            }}
-            className="text-sm opacity-70 hover:opacity-100 px-1"
-            aria-label={t("project.delete")}
-            title={t("project.delete")}
-          >
-            ✕
-          </button>
-        </div>
+      <div className="font-black leading-[1.05] tracking-tight text-[28px] break-words">
+        {project.paid && <span className="mr-1" aria-label="paid">💰</span>}
+        {project.name}
       </div>
 
-      {project.paid && earnings > 0 && (
-        <div data-no-drag className="mt-1 text-2xl font-bold">
-          {earnings.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}
-        </div>
-      )}
-
-      {project.description && (project.showDescription ?? true) && (
+      {project.description && showDescription && (
         <p
           data-no-drag
-          className="mt-1 text-xs leading-snug whitespace-pre-wrap opacity-80"
+          className="mt-3 text-[15px] leading-snug whitespace-pre-wrap"
+          style={{ color: "#1c1c1c", opacity: 0.72, fontWeight: 500 }}
         >
           {project.description}
         </p>
       )}
 
-      {(() => {
-        const raw = project.links ?? (project.link ? [{ url: project.link }] : []);
-        const normalized = raw
-          .map((l) => (typeof l === "string" ? { url: l, label: undefined } : l))
-          .filter((l) => l.url);
-        if (normalized.length === 0) return null;
-        return (
-          <div data-no-drag className="mt-1 flex flex-col gap-0.5">
-            {normalized.slice(0, 3).map((l, i) => (
-              <a
-                key={i}
-                href={l.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs underline truncate max-w-full"
-                style={{ color: style.text }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                🔗 {l.label || l.url.replace(/^https?:\/\//, "").slice(0, 40)}
-              </a>
-            ))}
-          </div>
-        );
-      })()}
-
-      {(project.showProgress ?? true) && (
-        <div className="mt-2 flex items-center gap-2 text-xs">
-          <div
-            className="flex-1 h-2 rounded-full overflow-hidden"
-            style={{ background: "rgba(0,0,0,.12)" }}
-          >
-            <div
-              className="h-full"
-              style={{ width: `${pct}%`, background: style.border }}
-            />
-          </div>
-          <span className="font-mono">{pct}%</span>
-        </div>
-      )}
-
-      {(project.startDate || project.endDate) && (
-        <div className="mt-1 text-[11px] opacity-70">
-          {project.startDate ?? "—"} → {project.endDate ?? "—"}
-        </div>
-      )}
-
-      <div data-no-drag className="mt-3 space-y-2 flex-1 flex flex-col min-h-0">
+      <div data-no-drag className="mt-5 flex-1 min-h-0">
         {project.tasks.length > 0 ? (
-          <ul className="space-y-1 overflow-auto flex-1 min-h-0">
+          <ul className="space-y-3 overflow-auto max-h-full">
             {project.tasks.map((task) => {
-              const tag: DifficultyTag = task.autoTag ?? "medium";
-              const s = TAG_STYLE[tag];
+              const ts = taskTextStyle(task.autoTag, task.done);
               return (
-                <li key={task.id} className="flex items-center gap-2 text-sm group/task">
+                <li key={task.id} className="flex items-center gap-3 text-[14px]">
                   <input
                     type="checkbox"
                     checked={task.done}
                     onChange={() => toggleTask(task.id)}
+                    className="w-4 h-4 shrink-0 rounded-sm"
+                    style={{ accentColor: "#1c1c1c", opacity: 0.45 }}
                   />
-                  <button
-                    onClick={() => cycleTaskTag(task.id)}
-                    title="Click to change difficulty"
-                    className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded shrink-0 min-w-[58px] text-center transition-colors"
-                    style={{ background: s.bg, color: s.color }}
-                  >
-                    {tagLabel(tag)}
-                  </button>
-                  <span className={task.done ? "line-through opacity-60 flex-1" : "flex-1"}>
+                  <span className={`flex-1 ${ts.className}`} style={ts.style}>
                     {task.text}
                   </span>
-                  <button
-                    onClick={() => removeTask(task.id)}
-                    className="[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/task:opacity-60 hover:!opacity-100 text-xs"
-                    aria-label={t("task.delete")}
-                  >
-                    ✕
-                  </button>
                 </li>
               );
             })}
           </ul>
-        ) : (
-          <p className="text-xs opacity-50 italic">
-            {t("task.addTask")} →
-          </p>
-        )}
-
-        {allDone && (
-          <button
-            onClick={() => onComplete(project.id)}
-            className="w-full text-sm px-3 py-1.5 rounded font-medium text-white"
-            style={{ background: style.border }}
-          >
-            ✓ {t("project.complete")}
-          </button>
-        )}
-
-        {!allDone && project.tasks.length > 0 && (
-          <div className="text-xs opacity-60">
-            {project.tasks.filter((t) => t.done).length}/{project.tasks.length} {t("project.tasks").toLowerCase()} ·{" "}
-            {t("project.importance").toLowerCase()} {project.importance}/5
-          </div>
-        )}
+        ) : null}
       </div>
 
-      <div
-        data-no-drag
-        onMouseDown={startResize}
-        onTouchStart={startTouchResize}
-        className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize"
-        title="Resize"
-      />
-    </div>
+      {showProgress && (
+        <div className="mt-5 flex flex-col items-center gap-1">
+          <span
+            className="text-[11px] font-mono"
+            style={{ color: "#1c1c1c", opacity: 0.55 }}
+          >
+            {pct}%
+          </span>
+          <div
+            className="w-full h-[3px] rounded-full overflow-hidden"
+            style={{ background: "rgba(0,0,0,.18)" }}
+          >
+            <div
+              className="h-full"
+              style={{ width: `${pct}%`, background: "#1c1c1c" }}
+            />
+          </div>
+        </div>
+      )}
+
+      {project.shareId && (
+        <span
+          className="absolute top-3 right-4 text-[9px] uppercase font-semibold px-1.5 py-0.5 rounded"
+          style={{ background: "#111", color: "#fff" }}
+          title="Publicly shared"
+        >
+          live
+        </span>
+      )}
+
+      {interactive && (
+        <div
+          data-no-drag
+          onMouseDown={startResize}
+          className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize opacity-30"
+          title="Resize"
+        />
+      )}
+      </div>
+    </>
   );
 }

@@ -3,6 +3,27 @@ export type Difficulty = 1 | 2 | 3;
 export type ProjectLink = {
   url: string;
   label?: string;
+  x?: number;
+  y?: number;
+};
+
+export type ProjectImage = {
+  id: string;
+  src: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+};
+
+export type ProjectNote = {
+  id: string;
+  text: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  color?: string;
 };
 
 export type DifficultyTag = "easy" | "medium" | "hard";
@@ -27,11 +48,15 @@ export type Project = {
   endDate?: string;
   link?: string;
   links?: ProjectLink[];
+  images?: ProjectImage[];
+  notes?: ProjectNote[];
   showProgress?: boolean;
   showDescription?: boolean;
   shareId?: string;
   tasks: Task[];
   position: { x: number; y: number };
+  detailPosition?: { x: number; y: number };
+  detailZoom?: number;
   width?: number;
   height?: number;
   zIndex?: number;
