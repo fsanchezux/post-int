@@ -13,12 +13,29 @@
 :root {
   --bg: #efefef;
   --ink: #18181b;
+  --surface: #ffffff;
+  --surface-2: #f4f4f5;
+  --border: #e4e4e7;
+  --muted: #71717a;
+  --dot: rgba(0, 0, 0, 0.18);
+  --card-decoration: #0a0a0a;
   --postit-green: #5dbf76;
   --postit-blue: #3babff;
   --postit-pink: #ffbcdf;
   --postit-yellow: #ffea73;
   /* Legacy aliases kept so older callers don't break */
   --postit-red: var(--postit-pink);
+}
+
+html[data-theme="dark"] {
+  --bg: #0f0f11;
+  --ink: #e4e4e7;
+  --surface: #1c1c1f;
+  --surface-2: #27272a;
+  --border: #3f3f46;
+  --muted: #a1a1aa;
+  --dot: rgba(255, 255, 255, 0.16);
+  --card-decoration: #3f3f46;
 }
 
 html,
@@ -42,7 +59,7 @@ body {
   position: relative;
   min-height: 75vh;
   background-color: transparent;
-  background-image: radial-gradient(rgba(0, 0, 0, 0.18) 1px, transparent 1px);
+  background-image: radial-gradient(var(--dot) 1px, transparent 1px);
   background-size: 18px 18px;
   background-position: 0 0;
   border-radius: 16px;
@@ -110,15 +127,24 @@ body {
 .vertical-zoom::-webkit-slider-runnable-track {
   width: 4px;
   height: 100%;
-  background: rgba(144, 190, 255, 0.35);
+  background: rgba(161, 161, 170, 0.35);
   border-radius: 9999px;
+}
+html[data-theme="dark"] .vertical-zoom::-webkit-slider-runnable-track,
+html[data-theme="dark"] .vertical-zoom::-moz-range-track,
+html[data-theme="dark"] .vertical-zoom::-moz-range-progress {
+  background: rgba(161, 161, 170, 0.55);
+}
+html[data-theme="dark"] .vertical-zoom::-webkit-slider-thumb,
+html[data-theme="dark"] .vertical-zoom::-moz-range-thumb {
+  background: #d4d4d8;
 }
 .vertical-zoom::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 18px;
   height: 18px;
-  background: #90beff;
+  background: #9ca3af;
   border-radius: 9999px;
   border: none;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
@@ -126,17 +152,17 @@ body {
 }
 .vertical-zoom::-moz-range-track {
   width: 4px;
-  background: rgba(144, 190, 255, 0.35);
+  background: rgba(161, 161, 170, 0.35);
   border-radius: 9999px;
 }
 .vertical-zoom::-moz-range-progress {
-  background: rgba(144, 190, 255, 0.35);
+  background: rgba(161, 161, 170, 0.35);
   border-radius: 9999px;
 }
 .vertical-zoom::-moz-range-thumb {
   width: 18px;
   height: 18px;
-  background: #90beff;
+  background: #9ca3af;
   border-radius: 9999px;
   border: none;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);

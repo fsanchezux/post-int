@@ -1,15 +1,15 @@
 "use client";
 
 import { createContext, useContext, useEffect } from "react";
-import { useCloudSync } from "@/lib/sync";
+import { useSupabaseSync } from "@/lib/supabase/sync";
 import { recordTodayOpened } from "@/lib/usageTracker";
 
-type Ctx = ReturnType<typeof useCloudSync>;
+type Ctx = ReturnType<typeof useSupabaseSync>;
 
 const SyncContext = createContext<Ctx | null>(null);
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
-  const value = useCloudSync();
+  const value = useSupabaseSync();
   useEffect(() => {
     recordTodayOpened();
   }, []);
@@ -23,6 +23,8 @@ export function useSync() {
       status: "idle" as const,
       lastSync: null,
       syncNow: async () => false,
+      user: null,
+      configured: false,
     };
   }
   return ctx;

@@ -100,12 +100,15 @@ export type CalendarEvent = {
 
 export type Language = "en" | "es" | "ca";
 
+export type Theme = "light" | "dark";
+
 export type Settings = {
   workSchedule: WorkSlot[];
   googleConnected: boolean;
   notionConnected: boolean;
   events: CalendarEvent[];
   language: Language;
+  theme?: Theme;
 };
 
 export type FreeSlot = {

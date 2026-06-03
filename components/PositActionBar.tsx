@@ -40,6 +40,8 @@ type Props = {
   onAddNote?: () => void;
   onAfterRemove?: () => void;
   onAfterComplete?: () => void;
+  background?: string;
+  iconColor?: string;
 };
 
 export function PositActionBar({
@@ -52,11 +54,15 @@ export function PositActionBar({
   onAddNote,
   onAfterRemove,
   onAfterComplete,
+  background,
+  iconColor,
 }: Props) {
   const confirm = useConfirm();
   const [sharing, setSharing] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const style = postItStyle(project);
+  const barBg = background ?? style.bg;
+  const icon = iconColor ?? "#1c1c1c";
 
   const startShare = async () => {
     if (sharing) return;
@@ -90,6 +96,28 @@ export function PositActionBar({
     onAfterComplete?.();
   };
 
+  const handleDisableShare = async () => {
+    if (!project.shareId) return;
+    const ok = await confirm({
+      title: "Disable share",
+      message: (
+        <>
+          Disable the public share link for <strong>{project.name}</strong>? The
+          link will stop working.
+        </>
+      ),
+      confirmLabel: "Disable",
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await fetch(`/api/share/${project.shareId}`, { method: "DELETE" });
+    } catch {
+      // ignore — still clear locally
+    }
+    onUpdate(project.id, { shareId: undefined });
+  };
+
   const handleDelete = async () => {
     const ok = await confirm({
       title: "Delete posit",
@@ -110,28 +138,34 @@ export function PositActionBar({
   return (
     <div
       className="inline-flex items-center gap-1 px-2 py-1.5 rounded-2xl shadow-md"
-      style={{ background: style.bg }}
+      style={{ background: barBg }}
     >
-      <BarBtn label={shareCopied ? "Copied" : "Share"} onClick={startShare}>
-        {shareCopied ? <CheckIcon /> : <ShareIcon />}
-      </BarBtn>
-      <BarBtn label="Edit" onClick={() => onEdit(project)}>
+      {project.shareId ? (
+        <BarBtn label="Disable share" onClick={handleDisableShare} color={icon}>
+          <ShareOffIcon />
+        </BarBtn>
+      ) : (
+        <BarBtn label={shareCopied ? "Copied" : "Share"} onClick={startShare} color={icon}>
+          {shareCopied ? <CheckIcon /> : <ShareIcon />}
+        </BarBtn>
+      )}
+      <BarBtn label="Edit" onClick={() => onEdit(project)} color={icon}>
         <EditIcon />
       </BarBtn>
       {onAddNote && (
-        <BarBtn label="Add note" onClick={onAddNote}>
+        <BarBtn label="Add note" onClick={onAddNote} color={icon}>
           <NoteIcon />
         </BarBtn>
       )}
       {onAddImage && (
-        <BarBtn label="Add image" onClick={onAddImage}>
+        <BarBtn label="Add image" onClick={onAddImage} color={icon}>
           <ImageIcon />
         </BarBtn>
       )}
-      <BarBtn label="Mark complete" onClick={handleComplete}>
+      <BarBtn label="Mark complete" onClick={handleComplete} color={icon}>
         <CheckCircleIcon />
       </BarBtn>
-      <BarBtn label="Delete" onClick={handleDelete}>
+      <BarBtn label="Delete" onClick={handleDelete} color={icon}>
         <TrashIcon />
       </BarBtn>
     </div>
@@ -142,10 +176,12 @@ function BarBtn({
   children,
   label,
   onClick,
+  color,
 }: {
   children: React.ReactNode;
   label: string;
   onClick: () => void;
+  color?: string;
 }) {
   return (
     <button
@@ -153,7 +189,7 @@ function BarBtn({
       aria-label={label}
       title={label}
       className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-black/10 transition-colors"
-      style={{ color: "#1c1c1c" }}
+      style={{ color: color ?? "#1c1c1c" }}
     >
       {children}
     </button>
@@ -168,6 +204,19 @@ function ShareIcon() {
       <circle cx="18" cy="19" r="3" />
       <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
       <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+    </svg>
+  );
+}
+
+function ShareOffIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+      <line x1="3" y1="3" x2="21" y2="21" />
     </svg>
   );
 }

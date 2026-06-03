@@ -16,6 +16,32 @@ type Props = {
 
 type LinkRow = { url: string; label: string };
 
+type SectionId = "basics" | "tasks" | "links" | "details" | "style";
+
+const SECTIONS: { id: SectionId; label: string }[] = [
+  { id: "basics", label: "Basics" },
+  { id: "tasks", label: "Tasks" },
+  { id: "links", label: "Links" },
+  { id: "details", label: "Details" },
+  { id: "style", label: "Style" },
+];
+
+const IMPORTANCE_SIZE: Record<1 | 2 | 3 | 4 | 5, { width: number; height: number }> = {
+  1: { width: 300, height: 220 },
+  2: { width: 340, height: 240 },
+  3: { width: 384, height: 280 },
+  4: { width: 440, height: 320 },
+  5: { width: 500, height: 360 },
+};
+
+const STEP_COLORS: string[] = [
+  "#9ca3af", // 1 — gray
+  "#f6c343", // 2 — amber/yellow
+  "#9bccd0", // 3 — light cyan/blue
+  "#1f4381", // 4 — navy
+  "#b1d8bb", // 5 — sage green
+];
+
 const EMPTY_LINKS: LinkRow[] = [
   { url: "", label: "" },
   { url: "", label: "" },
@@ -56,6 +82,9 @@ export function CreatePostItModal({ open, onClose, onSave, initial }: Props) {
   const [shape, setShape] = useState<"auto" | "normal" | "spiral" | "clip" | "folder">("auto");
   const [color, setColor] = useState<PostItColor>(POSTIT_PALETTE[0]);
   const [tagging, setTagging] = useState(false);
+  const [section, setSection] = useState<SectionId>("basics");
+
+  const isEdit = !!initial;
 
   useEffect(() => {
     if (open && initial) {
@@ -81,6 +110,7 @@ export function CreatePostItModal({ open, onClose, onSave, initial }: Props) {
       );
       setExistingTasks(initial.tasks.map((t) => ({ ...t })));
       setTasksText("");
+      setSection("basics");
     } else if (open) {
       const today = new Date();
       const inAWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -102,52 +132,29 @@ export function CreatePostItModal({ open, onClose, onSave, initial }: Props) {
       setColor(pickRandomColor());
       setExistingTasks([]);
       setTasksText("");
+      setSection("basics");
     }
   }, [open, initial]);
 
   useEffect(() => {
-    const onNewTask = () => {
-      if (!open) {
-        const today = new Date();
-        const inAWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-        const iso = (d: Date) => d.toISOString().slice(0, 10);
-        setName("");
-        setDescription("");
-        setShowDescription(true);
-        setImportance(3);
-        setPaid(false);
-        setAmount("");
-        setStartDate(iso(today));
-        setEndDate(iso(inAWeek));
-        setEstimatedHours("");
-        setLinks(EMPTY_LINKS);
-        setShowProgress(true);
-        setTitleWeight("extrabold");
-        setColor(pickRandomColor());
-        setExistingTasks([]);
-        setTasksText("");
-      }
-    };
-    window.addEventListener("shortcut:new-task", onNewTask);
-    return () => window.removeEventListener("shortcut:new-task", onNewTask);
-  }, [open]);
-
-  useEffect(() => {
-    const onSave = () => {
+    const onSaveEvt = () => {
       if (open && name.trim()) {
-        const form = document.querySelector("form") as HTMLFormElement | null;
+        const form = document.querySelector("form[data-posit-form]") as HTMLFormElement | null;
         if (form) form.requestSubmit();
       }
     };
-    window.addEventListener("shortcut:save-task", onSave);
-    return () => window.removeEventListener("shortcut:save-task", onSave);
+    window.addEventListener("shortcut:save-task", onSaveEvt);
+    return () => window.removeEventListener("shortcut:save-task", onSaveEvt);
   }, [open, name]);
 
   if (!open) return null;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      setSection("basics");
+      return;
+    }
 
     const rawTexts = tasksText
       .split("\n")
@@ -196,6 +203,7 @@ export function CreatePostItModal({ open, onClose, onSave, initial }: Props) {
       .slice(0, 3)
       .map((l) => (l.label ? l : { url: l.url }));
 
+    const size = IMPORTANCE_SIZE[importance];
     const project: Project = {
       ...base,
       name: name.trim(),
@@ -213,6 +221,8 @@ export function CreatePostItModal({ open, onClose, onSave, initial }: Props) {
       textColor,
       shape,
       color,
+      width: size.width,
+      height: size.height,
       tasks: initial
         ? [...existingTasks.filter((t) => t.text.trim()), ...newTasks]
         : newTasks,
@@ -231,349 +241,453 @@ export function CreatePostItModal({ open, onClose, onSave, initial }: Props) {
     5: t("project.importanceUrgent"),
   };
 
+  const sectionIdx = SECTIONS.findIndex((s) => s.id === section);
+  const goPrev = () => {
+    if (sectionIdx > 0) setSection(SECTIONS[sectionIdx - 1].id);
+  };
+  const goNext = () => {
+    if (sectionIdx < SECTIONS.length - 1) setSection(SECTIONS[sectionIdx + 1].id);
+  };
+  const isLast = sectionIdx === SECTIONS.length - 1;
+
+  const inputClass =
+    "mt-1 w-full rounded px-3 py-2 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-zinc-300";
+  const inputStyle = { border: "1px solid var(--border)", color: "var(--ink)" } as const;
+
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.5)" }}
       onClick={onClose}
     >
       <form
+        data-posit-form
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
-        className="bg-white text-zinc-900 rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-auto shadow-2xl"
+        className="relative rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-auto shadow-2xl"
+        style={{ background: "var(--surface)", color: "var(--ink)", border: "1px solid var(--border)" }}
       >
-        <h2 className="text-lg font-semibold mb-4">
-          {initial ? t("project.update") : t("project.create")}
-        </h2>
-
-        <div className="space-y-3">
-          <label className="block">
-            <span className="text-sm font-medium">{t("project.name")}</span>
-            <input
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="mt-1 w-full border rounded px-3 py-2 bg-transparent"
+        <div
+          className="absolute top-4 right-4 grid grid-cols-2 gap-[3px] pointer-events-none"
+          aria-hidden="true"
+          title="Drag"
+        >
+          {Array.from({ length: 6 }).map((_, i) => (
+            <span
+              key={i}
+              className="block rounded-full"
+              style={{ width: 4, height: 4, background: "var(--muted)" }}
             />
-          </label>
-
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">{t("project.description")}</span>
-              <label className="flex items-center gap-1.5 text-xs">
-                <input
-                  type="checkbox"
-                  checked={showDescription}
-                  onChange={(e) => setShowDescription(e.target.checked)}
-                />
-                Show on posit
-              </label>
-            </div>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              placeholder="Notes, context, brief..."
-              className="mt-1 w-full border rounded px-3 py-2 bg-transparent text-sm"
-            />
-          </div>
-
-          <div>
-            <span className="text-sm font-medium">{t("project.color")}</span>
-            <div className="mt-1 flex gap-2">
-              {POSTIT_PALETTE.map((c) => (
-                <button
-                  type="button"
-                  key={c}
-                  onClick={() => setColor(c)}
-                  aria-label={`Color ${c}`}
-                  className="w-8 h-8 rounded-full transition-transform"
-                  style={{
-                    background: c,
-                    outline: color === c ? "2px solid #111" : "1px solid rgba(0,0,0,0.1)",
-                    outlineOffset: 2,
-                    transform: color === c ? "scale(1.05)" : "scale(1)",
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <span className="text-sm font-medium">Text color</span>
-            <div className="mt-1 inline-flex rounded-md border overflow-hidden">
-              {([
-                { value: "auto", label: "Auto" },
-                { value: "dark", label: "Dark" },
-                { value: "light", label: "Light" },
-              ] as const).map((opt) => {
-                const active = textColor === opt.value;
-                return (
-                  <button
-                    type="button"
-                    key={opt.value}
-                    onClick={() => setTextColor(opt.value)}
-                    className="px-3 py-1.5 text-sm uppercase tracking-tight transition-colors"
-                    style={{
-                      background: active ? "#111" : "transparent",
-                      color: active ? "#fff" : "#1c1c1c",
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <span className="text-sm font-medium">Shape</span>
-            <div className="mt-1 inline-flex rounded-md border overflow-hidden flex-wrap">
-              {([
-                { value: "auto", label: "Auto" },
-                { value: "normal", label: "Normal" },
-                { value: "clip", label: "Clip" },
-                { value: "spiral", label: "Spiral" },
-                { value: "folder", label: "Folder" },
-              ] as const).map((opt) => {
-                const active = shape === opt.value;
-                return (
-                  <button
-                    type="button"
-                    key={opt.value}
-                    onClick={() => setShape(opt.value)}
-                    className="px-3 py-1.5 text-sm uppercase tracking-tight transition-colors"
-                    style={{
-                      background: active ? "#111" : "transparent",
-                      color: active ? "#fff" : "#1c1c1c",
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <span className="text-sm font-medium">Title weight</span>
-            <div className="mt-1 inline-flex rounded-md border overflow-hidden">
-              {([
-                { value: "semibold", label: "Semi", weight: 600 },
-                { value: "bold", label: "Bold", weight: 700 },
-                { value: "extrabold", label: "Extra", weight: 800 },
-              ] as const).map((opt) => {
-                const active = titleWeight === opt.value;
-                return (
-                  <button
-                    type="button"
-                    key={opt.value}
-                    onClick={() => setTitleWeight(opt.value)}
-                    className="px-3 py-1.5 text-sm uppercase tracking-tight transition-colors"
-                    style={{
-                      fontWeight: opt.weight,
-                      background: active ? "#111" : "transparent",
-                      color: active ? "#fff" : "#1c1c1c",
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <span className="text-sm font-medium">{t("project.link")} (max 3)</span>
-            <div className="mt-1 space-y-1.5">
-              {links.map((row, i) => (
-                <div key={i} className="grid grid-cols-[110px_1fr] gap-1.5">
-                  <input
-                    value={row.label}
-                    onChange={(e) =>
-                      setLinks((prev) =>
-                        prev.map((v, idx) =>
-                          idx === i ? { ...v, label: e.target.value } : v
-                        )
-                      )
-                    }
-                    placeholder="Name"
-                    className="border rounded px-2 py-1.5 bg-transparent text-sm"
-                  />
-                  <input
-                    type="url"
-                    value={row.url}
-                    onChange={(e) =>
-                      setLinks((prev) =>
-                        prev.map((v, idx) =>
-                          idx === i ? { ...v, url: e.target.value } : v
-                        )
-                      )
-                    }
-                    placeholder={`https://... (${i + 1})`}
-                    className="border rounded px-2 py-1.5 bg-transparent text-sm"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <label className="block">
-            <span className="text-sm font-medium">{t("project.importance")}: {importanceLabels[importance]}</span>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              value={importance}
-              onChange={(e) => setImportance(Number(e.target.value) as 1 | 2 | 3 | 4 | 5)}
-              className="w-full"
-            />
-          </label>
-
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={paid}
-              onChange={(e) => setPaid(e.target.checked)}
-            />
-            <span className="text-sm font-medium">{t("project.paid")}</span>
-          </label>
-
-          {paid && (
-            <label className="block">
-              <span className="text-sm font-medium">{t("project.amount")} (€)</span>
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="mt-1 w-full border rounded px-3 py-2 bg-transparent"
-              />
-            </label>
-          )}
-
-          <div className="grid grid-cols-2 gap-2">
-            <label className="block">
-              <span className="text-sm font-medium">{t("project.startDate")}</span>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="mt-1 w-full border rounded px-3 py-2 bg-transparent"
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium">{t("project.endDate")}</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="mt-1 w-full border rounded px-3 py-2 bg-transparent"
-              />
-            </label>
-          </div>
-
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={showProgress}
-              onChange={(e) => setShowProgress(e.target.checked)}
-            />
-            <span className="text-sm font-medium">{t("project.progress")}</span>
-          </label>
-
-          <label className="block">
-            <span className="text-sm font-medium">{t("project.estimatedHours")}</span>
-            <input
-              type="number"
-              min={0}
-              step="0.5"
-              value={estimatedHours}
-              onChange={(e) => setEstimatedHours(e.target.value)}
-              className="mt-1 w-full border rounded px-3 py-2 bg-transparent"
-            />
-          </label>
-
-          {initial && existingTasks.length > 0 && (
-            <div>
-              <span className="text-sm font-medium">{t("project.tasks")}</span>
-              <ul className="mt-1 space-y-1.5">
-                {existingTasks.map((task, i) => (
-                  <li key={task.id} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={task.done}
-                      onChange={(e) =>
-                        setExistingTasks((prev) =>
-                          prev.map((x, idx) =>
-                            idx === i
-                              ? {
-                                  ...x,
-                                  done: e.target.checked,
-                                  doneAt: e.target.checked
-                                    ? new Date().toISOString()
-                                    : undefined,
-                                }
-                              : x
-                          )
-                        )
-                      }
-                    />
-                    <input
-                      value={task.text}
-                      onChange={(e) =>
-                        setExistingTasks((prev) =>
-                          prev.map((x, idx) =>
-                            idx === i ? { ...x, text: e.target.value } : x
-                          )
-                        )
-                      }
-                      className={`flex-1 border rounded px-2 py-1 bg-transparent text-sm ${
-                        task.done ? "line-through opacity-60" : ""
-                      }`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setExistingTasks((prev) => prev.filter((_, idx) => idx !== i))
-                      }
-                      className="text-xs text-red-600 px-1"
-                      aria-label={t("project.delete")}
-                    >
-                      ✕
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <label className="block">
-            <span className="text-sm font-medium">
-              {initial ? "Add new tasks" : t("project.tasks")} (one per line)
-            </span>
-            <textarea
-              value={tasksText}
-              onChange={(e) => setTasksText(e.target.value)}
-              rows={3}
-              placeholder={"Design mockups\nDevelop API\nTesting"}
-              className="mt-1 w-full border rounded px-3 py-2 bg-transparent font-mono text-sm"
-            />
-          </label>
+          ))}
         </div>
 
-        <div className="flex justify-end gap-2 mt-5">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded border">
+        <h2 className="text-lg font-semibold mb-3 pr-10">
+          {isEdit ? t("project.update") : t("project.create")}
+        </h2>
+
+        {/* Tabs (edit) / progress dots (create) */}
+        {isEdit ? (
+          <div
+            className="flex gap-1 mb-4 -mx-1 overflow-x-auto"
+            role="tablist"
+            aria-label="Sections"
+          >
+            {SECTIONS.map((s) => {
+              const active = s.id === section;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setSection(s.id)}
+                  className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-md transition-colors"
+                  style={{
+                    background: active ? "var(--surface-2)" : "transparent",
+                    color: active ? "var(--ink)" : "var(--muted)",
+                  }}
+                >
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 mb-4">
+            {SECTIONS.map((s, i) => (
+              <div
+                key={s.id}
+                className="h-1 flex-1 rounded-full transition-colors"
+                style={{
+                  background: i <= sectionIdx ? STEP_COLORS[sectionIdx] : "var(--surface-2)",
+                }}
+                aria-hidden="true"
+              />
+            ))}
+          </div>
+        )}
+
+        {!isEdit && (
+          <div
+            className="text-xs uppercase tracking-widest mb-3"
+            style={{ color: "var(--muted)" }}
+          >
+            Step {sectionIdx + 1} of {SECTIONS.length} — {SECTIONS[sectionIdx].label}
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {section === "basics" && (
+            <>
+              <label className="block">
+                <span className="text-sm font-medium">{t("project.name")}</span>
+                <input
+                  autoFocus
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </label>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{t("project.description")}</span>
+                  <label className="flex items-center gap-1.5 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={showDescription}
+                      onChange={(e) => setShowDescription(e.target.checked)}
+                    />
+                    Show on posit
+                  </label>
+                </div>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  placeholder="Notes, context, brief..."
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <span className="text-sm font-medium">{t("project.color")}</span>
+                <div className="mt-1 flex gap-2">
+                  {POSTIT_PALETTE.map((c) => (
+                    <button
+                      type="button"
+                      key={c}
+                      onClick={() => setColor(c)}
+                      aria-label={`Color ${c}`}
+                      className="w-8 h-8 rounded-full transition-transform"
+                      style={{
+                        background: c,
+                        outline: color === c ? "2px solid var(--ink)" : "1px solid var(--border)",
+                        outlineOffset: 2,
+                        transform: color === c ? "scale(1.05)" : "scale(1)",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {section === "tasks" && (
+            <>
+              {isEdit && existingTasks.length > 0 && (
+                <div>
+                  <span className="text-sm font-medium">{t("project.tasks")}</span>
+                  <ul className="mt-1 space-y-1.5">
+                    {existingTasks.map((task, i) => (
+                      <li key={task.id} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={task.done}
+                          onChange={(e) =>
+                            setExistingTasks((prev) =>
+                              prev.map((x, idx) =>
+                                idx === i
+                                  ? {
+                                      ...x,
+                                      done: e.target.checked,
+                                      doneAt: e.target.checked
+                                        ? new Date().toISOString()
+                                        : undefined,
+                                    }
+                                  : x
+                              )
+                            )
+                          }
+                        />
+                        <input
+                          value={task.text}
+                          onChange={(e) =>
+                            setExistingTasks((prev) =>
+                              prev.map((x, idx) =>
+                                idx === i ? { ...x, text: e.target.value } : x
+                              )
+                            )
+                          }
+                          className={`flex-1 rounded px-2 py-1 bg-transparent text-sm ${
+                            task.done ? "line-through opacity-60" : ""
+                          }`}
+                          style={inputStyle}
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExistingTasks((prev) => prev.filter((_, idx) => idx !== i))
+                          }
+                          className="text-xs text-red-500 px-1"
+                          aria-label={t("project.delete")}
+                        >
+                          ✕
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <label className="block">
+                <span className="text-sm font-medium">
+                  {isEdit ? "Add new tasks" : t("project.tasks")} (one per line)
+                </span>
+                <textarea
+                  value={tasksText}
+                  onChange={(e) => setTasksText(e.target.value)}
+                  rows={5}
+                  placeholder={"Design mockups\nDevelop API\nTesting"}
+                  className={`${inputClass} font-mono`}
+                  style={inputStyle}
+                />
+              </label>
+            </>
+          )}
+
+          {section === "links" && (
+            <div>
+              <span className="text-sm font-medium">{t("project.link")} (max 3)</span>
+              <div className="mt-1 space-y-1.5">
+                {links.map((row, i) => (
+                  <div key={i} className="grid grid-cols-[110px_1fr] gap-1.5">
+                    <input
+                      value={row.label}
+                      onChange={(e) =>
+                        setLinks((prev) =>
+                          prev.map((v, idx) =>
+                            idx === i ? { ...v, label: e.target.value } : v
+                          )
+                        )
+                      }
+                      placeholder="Name"
+                      className="rounded px-2 py-1.5 bg-transparent text-sm"
+                      style={inputStyle}
+                    />
+                    <input
+                      type="url"
+                      value={row.url}
+                      onChange={(e) =>
+                        setLinks((prev) =>
+                          prev.map((v, idx) =>
+                            idx === i ? { ...v, url: e.target.value } : v
+                          )
+                        )
+                      }
+                      placeholder={`https://... (${i + 1})`}
+                      className="rounded px-2 py-1.5 bg-transparent text-sm"
+                      style={inputStyle}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {section === "details" && (
+            <div className="space-y-3">
+              <label className="block">
+                <span className="text-sm font-medium">
+                  {t("project.importance")}: {importanceLabels[importance]}
+                </span>
+                <input
+                  type="range"
+                  min={1}
+                  max={5}
+                  value={importance}
+                  onChange={(e) => setImportance(Number(e.target.value) as 1 | 2 | 3 | 4 | 5)}
+                  className="w-full"
+                  style={{ accentColor: "#1f4381" }}
+                />
+              </label>
+
+              <div
+                className="rounded-md p-3 text-xs"
+                style={{
+                  background: "var(--surface-2)",
+                  color: "var(--muted)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                More importance = bigger card on the board ({IMPORTANCE_SIZE[importance].width}
+                ×{IMPORTANCE_SIZE[importance].height} px).
+              </div>
+            </div>
+          )}
+
+          {section === "style" && (
+            <>
+              <div>
+                <span className="text-sm font-medium">Text color</span>
+                <div
+                  className="mt-1 inline-flex rounded-md overflow-hidden"
+                  style={{ border: "1px solid var(--border)" }}
+                >
+                  {([
+                    { value: "auto", label: "Auto" },
+                    { value: "dark", label: "Dark" },
+                    { value: "light", label: "Light" },
+                  ] as const).map((opt) => {
+                    const active = textColor === opt.value;
+                    return (
+                      <button
+                        type="button"
+                        key={opt.value}
+                        onClick={() => setTextColor(opt.value)}
+                        className="px-3 py-1.5 text-sm uppercase tracking-tight transition-colors"
+                        style={{
+                          background: active ? "var(--ink)" : "transparent",
+                          color: active ? "var(--surface)" : "var(--ink)",
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-sm font-medium">Shape</span>
+                <div
+                  className="mt-1 inline-flex rounded-md overflow-hidden flex-wrap"
+                  style={{ border: "1px solid var(--border)" }}
+                >
+                  {([
+                    { value: "auto", label: "Auto" },
+                    { value: "normal", label: "Normal" },
+                    { value: "clip", label: "Clip" },
+                    { value: "spiral", label: "Spiral" },
+                    { value: "folder", label: "Folder" },
+                  ] as const).map((opt) => {
+                    const active = shape === opt.value;
+                    return (
+                      <button
+                        type="button"
+                        key={opt.value}
+                        onClick={() => setShape(opt.value)}
+                        className="px-3 py-1.5 text-sm uppercase tracking-tight transition-colors"
+                        style={{
+                          background: active ? "var(--ink)" : "transparent",
+                          color: active ? "var(--surface)" : "var(--ink)",
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-sm font-medium">Title weight</span>
+                <div
+                  className="mt-1 inline-flex rounded-md overflow-hidden"
+                  style={{ border: "1px solid var(--border)" }}
+                >
+                  {([
+                    { value: "semibold", label: "Semi", weight: 600 },
+                    { value: "bold", label: "Bold", weight: 700 },
+                    { value: "extrabold", label: "Extra", weight: 800 },
+                  ] as const).map((opt) => {
+                    const active = titleWeight === opt.value;
+                    return (
+                      <button
+                        type="button"
+                        key={opt.value}
+                        onClick={() => setTitleWeight(opt.value)}
+                        className="px-3 py-1.5 text-sm uppercase tracking-tight transition-colors"
+                        style={{
+                          fontWeight: opt.weight,
+                          background: active ? "var(--ink)" : "transparent",
+                          color: active ? "var(--surface)" : "var(--ink)",
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={showProgress}
+                  onChange={(e) => setShowProgress(e.target.checked)}
+                />
+                <span className="text-sm font-medium">{t("project.progress")}</span>
+              </label>
+            </>
+          )}
+        </div>
+
+        <div className="flex justify-between items-center gap-2 mt-6">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded text-sm font-medium transition-colors hover:opacity-80"
+            style={{ border: "1px solid var(--border)", color: "var(--ink)" }}
+          >
             {t("project.cancel")}
           </button>
-          <button
-            type="submit"
-            disabled={tagging}
-            className="px-4 py-2 rounded bg-zinc-900 text-white disabled:opacity-60"
-          >
-            {tagging ? "Tagging..." : initial ? t("common.save") : t("project.create")}
-          </button>
+
+          <div className="flex items-center gap-2">
+            {!isEdit && sectionIdx > 0 && (
+              <button
+                type="button"
+                onClick={goPrev}
+                className="px-4 py-2 rounded text-sm font-medium transition-colors hover:opacity-80"
+                style={{ border: "1px solid var(--border)", color: "var(--ink)" }}
+              >
+                Back
+              </button>
+            )}
+            {!isEdit && !isLast ? (
+              <button
+                type="button"
+                onClick={goNext}
+                disabled={sectionIdx === 0 && !name.trim()}
+                className="px-4 py-2 rounded text-sm font-medium text-white transition-colors disabled:opacity-50 hover:opacity-90"
+                style={{ background: "#9ca3af" }}
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={tagging}
+                className="px-4 py-2 rounded text-sm font-medium text-white disabled:opacity-60 hover:opacity-90 transition-colors"
+                style={{ background: "#9ca3af" }}
+              >
+                {tagging ? "Tagging..." : isEdit ? t("common.save") : t("project.create")}
+              </button>
+            )}
+          </div>
         </div>
       </form>
     </div>

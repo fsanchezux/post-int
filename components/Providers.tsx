@@ -4,6 +4,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { SyncProvider } from "@/components/SyncProvider";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { BoardUIProvider } from "@/components/BoardUIContext";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import { I18nProvider } from "@/lib/i18n";
 import { useSettings } from "@/lib/storage";
 import type { Language } from "@/lib/types";
@@ -29,11 +30,13 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <I18nWrapper>
       <SyncProvider>
-        <ConfirmProvider>
-          <BoardUIProvider>
-            {children}
-          </BoardUIProvider>
-        </ConfirmProvider>
+        <ThemeProvider>
+          <ConfirmProvider>
+            <BoardUIProvider>
+              {children}
+            </BoardUIProvider>
+          </ConfirmProvider>
+        </ThemeProvider>
       </SyncProvider>
     </I18nWrapper>
   );

@@ -25,6 +25,7 @@ export default function Home() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState<number | null>(null);
   const [userAdjusted, setUserAdjusted] = useState(false);
 
@@ -99,6 +100,59 @@ export default function Home() {
     window.addEventListener("shortcut:new-task", onNewTask);
     return () => window.removeEventListener("shortcut:new-task", onNewTask);
   }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (focusedId) return;
+
+      if (e.key === "Tab" && e.shiftKey) {
+        e.preventDefault();
+        if (projects.length === 0) return;
+        const idx = projects.findIndex((p) => p.id === selectedId);
+        const nextIdx = idx < 0 ? 0 : (idx + 1) % projects.length;
+        setSelectedId(projects[nextIdx].id);
+        return;
+      }
+
+      if (
+        selectedId &&
+        ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)
+      ) {
+        e.preventDefault();
+        const project = projects.find((p) => p.id === selectedId);
+        if (!project) return;
+        const step = e.shiftKey ? 10 : 1;
+        const dx = e.key === "ArrowRight" ? step : e.key === "ArrowLeft" ? -step : 0;
+        const dy = e.key === "ArrowDown" ? step : e.key === "ArrowUp" ? -step : 0;
+        updateProject(selectedId, {
+          position: {
+            x: Math.max(0, project.position.x + dx),
+            y: Math.max(0, project.position.y + dy),
+          },
+        });
+        return;
+      }
+
+      if (e.key === " " && e.shiftKey && selectedId) {
+        e.preventDefault();
+        const project = projects.find((p) => p.id === selectedId);
+        if (!project) return;
+        const currentZ = project.zIndex ?? 0;
+        const maxZ = Math.max(...projects.map((p) => p.zIndex ?? 0), 0);
+        const newZ = currentZ >= maxZ ? -1 : maxZ + 1;
+        updateProject(selectedId, { zIndex: newZ });
+        return;
+      }
+
+      if (e.key === "Escape") {
+        setSelectedId(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [projects, selectedId, focusedId, updateProject]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -177,6 +231,7 @@ export default function Home() {
                   project={p}
                   zoom={zoom ?? 1}
                   zIndex={p.zIndex ?? 0}
+                  selected={p.id === selectedId}
                   onSelect={() => setFocusedId(p.id)}
                   onUpdate={updateProject}
                 />

@@ -10,6 +10,7 @@ const MOOD_KEY = "pmw:mood";
 export const UPDATED_AT_KEY = "pmw:updatedAt";
 export const SYNC_EMAIL_KEY = "pmw:syncEmail";
 export const REMOTE_UPDATE_EVENT = "pmw:remote-update";
+export const SETTINGS_CHANGED_EVENT = "pmw:settings-changed";
 
 export const SYNCED_KEYS = {
   projects: PROJECTS_KEY,
@@ -84,65 +85,73 @@ export function useProjects() {
     };
   }, []);
 
-  const persistProjects = useCallback((next: Project[]) => {
-    setProjects(next);
-    writeJSON(PROJECTS_KEY, next);
+  const addProject = useCallback((p: Project) => {
+    setProjects((prev) => {
+      const next = [...prev, p];
+      writeJSON(PROJECTS_KEY, next);
+      return next;
+    });
   }, []);
 
-  const persistHistory = useCallback((next: Project[]) => {
-    setHistory(next);
-    writeJSON(HISTORY_KEY, next);
+  const updateProject = useCallback((id: string, patch: Partial<Project>) => {
+    setProjects((prev) => {
+      const next = prev.map((p) => (p.id === id ? { ...p, ...patch } : p));
+      writeJSON(PROJECTS_KEY, next);
+      return next;
+    });
   }, []);
 
-  const addProject = useCallback(
-    (p: Project) => {
-      persistProjects([...projects, p]);
-    },
-    [projects, persistProjects]
-  );
+  const removeProject = useCallback((id: string) => {
+    setProjects((prev) => {
+      const next = prev.filter((p) => p.id !== id);
+      writeJSON(PROJECTS_KEY, next);
+      return next;
+    });
+  }, []);
 
-  const updateProject = useCallback(
-    (id: string, patch: Partial<Project>) => {
-      persistProjects(projects.map((p) => (p.id === id ? { ...p, ...patch } : p)));
-    },
-    [projects, persistProjects]
-  );
+  const completeProject = useCallback((id: string) => {
+    let toComplete: Project | undefined;
+    setProjects((prev) => {
+      toComplete = prev.find((p) => p.id === id);
+      if (!toComplete) return prev;
+      const next = prev.filter((p) => p.id !== id);
+      writeJSON(PROJECTS_KEY, next);
+      return next;
+    });
+    if (!toComplete) return;
+    const completed = { ...toComplete, completedAt: new Date().toISOString() };
+    setHistory((prev) => {
+      const next = [completed, ...prev];
+      writeJSON(HISTORY_KEY, next);
+      return next;
+    });
+  }, []);
 
-  const removeProject = useCallback(
-    (id: string) => {
-      persistProjects(projects.filter((p) => p.id !== id));
-    },
-    [projects, persistProjects]
-  );
+  const restoreFromHistory = useCallback((id: string) => {
+    let toRestore: Project | undefined;
+    setHistory((prev) => {
+      toRestore = prev.find((p) => p.id === id);
+      if (!toRestore) return prev;
+      const next = prev.filter((p) => p.id !== id);
+      writeJSON(HISTORY_KEY, next);
+      return next;
+    });
+    if (!toRestore) return;
+    const restored = { ...toRestore, completedAt: undefined };
+    setProjects((prev) => {
+      const next = [...prev, restored];
+      writeJSON(PROJECTS_KEY, next);
+      return next;
+    });
+  }, []);
 
-  const completeProject = useCallback(
-    (id: string) => {
-      const target = projects.find((p) => p.id === id);
-      if (!target) return;
-      const completed = { ...target, completedAt: new Date().toISOString() };
-      persistHistory([completed, ...history]);
-      persistProjects(projects.filter((p) => p.id !== id));
-    },
-    [projects, history, persistProjects, persistHistory]
-  );
-
-  const restoreFromHistory = useCallback(
-    (id: string) => {
-      const target = history.find((p) => p.id === id);
-      if (!target) return;
-      const restored = { ...target, completedAt: undefined };
-      persistProjects([...projects, restored]);
-      persistHistory(history.filter((p) => p.id !== id));
-    },
-    [projects, history, persistProjects, persistHistory]
-  );
-
-  const clearHistoryEntry = useCallback(
-    (id: string) => {
-      persistHistory(history.filter((p) => p.id !== id));
-    },
-    [history, persistHistory]
-  );
+  const clearHistoryEntry = useCallback((id: string) => {
+    setHistory((prev) => {
+      const next = prev.filter((p) => p.id !== id);
+      writeJSON(HISTORY_KEY, next);
+      return next;
+    });
+  }, []);
 
   return {
     projects,
@@ -166,13 +175,18 @@ export function useSettings() {
     reload();
     setHydrated(true);
     window.addEventListener(REMOTE_UPDATE_EVENT, reload);
-    return () => window.removeEventListener(REMOTE_UPDATE_EVENT, reload);
+    window.addEventListener(SETTINGS_CHANGED_EVENT, reload);
+    return () => {
+      window.removeEventListener(REMOTE_UPDATE_EVENT, reload);
+      window.removeEventListener(SETTINGS_CHANGED_EVENT, reload);
+    };
   }, []);
 
   const updateSettings = useCallback((patch: Partial<Settings>) => {
     setSettings((prev) => {
       const next = { ...prev, ...patch };
       writeJSON(SETTINGS_KEY, next);
+      window.dispatchEvent(new Event(SETTINGS_CHANGED_EVENT));
       return next;
     });
   }, []);

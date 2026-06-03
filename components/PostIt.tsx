@@ -408,7 +408,7 @@ export function PostIt({
                   key={`w${i}`}
                   d={d}
                   fill="none"
-                  stroke="#0a0a0a"
+                  stroke="var(--card-decoration)"
                   strokeWidth="3.6"
                   strokeLinecap="round"
                   clipPath={`url(#${clipId}-${i})`}
@@ -464,7 +464,7 @@ export function PostIt({
             <path
               d="M 10 8 Q 10 2 18 2 Q 26 2 26 8 L 26 50 Q 26 58 18 58 Q 10 58 10 50 L 10 16 Q 10 10 16 10 Q 22 10 22 16 L 22 46"
               fill="none"
-              stroke="#1c1c1c"
+              stroke="var(--card-decoration)"
               strokeWidth="3"
               strokeLinecap="round"
             />

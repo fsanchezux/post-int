@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Project, ProjectImage, ProjectLink, ProjectNote } from "@/lib/types";
-import { POSTIT_YELLOW } from "@/lib/colors";
+import { POSTIT_YELLOW, postItStyle, darken, lighten, isDarkColor } from "@/lib/colors";
 import { uid } from "@/lib/storage";
 import { PostIt } from "./PostIt";
 import { PositActionBar } from "./PositActionBar";
@@ -266,25 +266,28 @@ export function PositDetailView({
     height: positHeight,
   };
 
+  const projectStyle = postItStyle(project);
+  const cardBg = projectStyle.bg;
+  const textPref = project.textColor ?? "auto";
+  const onDark =
+    textPref === "light" ? true : textPref === "dark" ? false : isDarkColor(cardBg);
+  const progressFill = onDark ? lighten(cardBg, 0.55) : darken(cardBg, 0.35);
+  const connectorStroke = cardBg;
+  const connectorDot = cardBg;
+
   return (
     <div
       ref={containerRef}
       className="whiteboard relative"
       style={{ minHeight: "75vh" }}
     >
-      <button
-        onClick={onBack}
-        className="absolute top-4 left-4 z-30 flex items-center gap-2 px-4 py-2 rounded-full bg-white shadow-md text-sm font-semibold hover:bg-zinc-100 transition-colors"
-        aria-label="Back to board"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="19" y1="12" x2="5" y2="12" />
-          <polyline points="12 19 5 12 12 5" />
-        </svg>
-        Back
-      </button>
-
-      <VerticalZoom value={zoom} onChange={setZoom} onFit={() => setZoom(1)} />
+      <VerticalZoom
+        value={zoom}
+        onChange={setZoom}
+        onFit={() => setZoom(1)}
+        onBack={onBack}
+        backColor={cardBg}
+      />
 
       <input
         ref={fileInputRef}
@@ -325,10 +328,11 @@ export function PositDetailView({
                   itemX={x}
                   itemY={y}
                   zoom={zoom}
+                  stroke={connectorStroke}
                   onMove={updateLinkPosition}
                 />
-                <circle cx={startX} cy={startY} r="5" fill="#ff6fb5" pointerEvents="none" />
-                <circle cx={endX} cy={endY} r="5" fill="#ff6fb5" pointerEvents="none" />
+                <circle cx={startX} cy={startY} r="5" fill={connectorDot} pointerEvents="none" />
+                <circle cx={endX} cy={endY} r="5" fill={connectorDot} pointerEvents="none" />
               </g>
             );
           })}
@@ -349,10 +353,11 @@ export function PositDetailView({
                   itemX={x}
                   itemY={y}
                   zoom={zoom}
+                  stroke={connectorStroke}
                   onMove={updateImagePosition}
                 />
-                <circle cx={startX} cy={startY} r="5" fill="#ff6fb5" pointerEvents="none" />
-                <circle cx={endX} cy={endY} r="5" fill="#ff6fb5" pointerEvents="none" />
+                <circle cx={startX} cy={startY} r="5" fill={connectorDot} pointerEvents="none" />
+                <circle cx={endX} cy={endY} r="5" fill={connectorDot} pointerEvents="none" />
               </g>
             );
           })}
@@ -373,10 +378,11 @@ export function PositDetailView({
                   itemX={x}
                   itemY={y}
                   zoom={zoom}
+                  stroke={connectorStroke}
                   onMove={updateNotePosition}
                 />
-                <circle cx={startX} cy={startY} r="5" fill="#ff6fb5" pointerEvents="none" />
-                <circle cx={endX} cy={endY} r="5" fill="#ff6fb5" pointerEvents="none" />
+                <circle cx={startX} cy={startY} r="5" fill={connectorDot} pointerEvents="none" />
+                <circle cx={endX} cy={endY} r="5" fill={connectorDot} pointerEvents="none" />
               </g>
             );
           })}
@@ -399,6 +405,8 @@ export function PositDetailView({
               x={x}
               y={y}
               zoom={zoom}
+              background={cardBg}
+              foreground={projectStyle.text}
               onMove={(nx, ny) => updateLinkPosition(idx, nx, ny)}
             />
           ))}
@@ -426,6 +434,8 @@ export function PositDetailView({
               x={x}
               y={y}
               zoom={zoom}
+              background={cardBg}
+              foreground={projectStyle.text}
               onMove={(nx, ny) => updateNotePosition(idx, nx, ny)}
               onTextChange={(text) => updateNoteText(idx, text)}
               onRemove={() => removeNote(idx)}
@@ -451,6 +461,8 @@ export function PositDetailView({
                 onAddImage={() => fileInputRef.current?.click()}
                 onAfterRemove={onBack}
                 onAfterComplete={onBack}
+                background={cardBg}
+                iconColor={progressFill}
               />
             </div>
           </div>
@@ -484,12 +496,30 @@ function useBoardDrag(
       const ny = Math.max(0, (e.clientY - parentRect.top - offset.current.y) / zoom);
       onMove(nx, ny);
     };
+    const onTouchMove = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      e.preventDefault();
+      const parent = ref.current?.parentElement;
+      if (!parent) return;
+      const dx = t.clientX - dragStart.current.x;
+      const dy = t.clientY - dragStart.current.y;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) dragMoved.current = true;
+      const parentRect = parent.getBoundingClientRect();
+      const nx = Math.max(0, (t.clientX - parentRect.left - offset.current.x) / zoom);
+      const ny = Math.max(0, (t.clientY - parentRect.top - offset.current.y) / zoom);
+      onMove(nx, ny);
+    };
     const onUp = () => setDragging(false);
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onUp);
     return () => {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onUp);
     };
   }, [dragging, zoom, onMove, ref]);
 
@@ -511,12 +541,16 @@ function DraggableYellowNote({
   y,
   zoom,
   onMove,
+  background,
+  foreground,
 }: {
   link: ProjectLink;
   x: number;
   y: number;
   zoom: number;
   onMove: (x: number, y: number) => void;
+  background?: string;
+  foreground?: string;
 }) {
   const ref = useRef<HTMLAnchorElement | null>(null);
   const { dragging, dragMoved, startDrag } = useBoardDrag(ref, zoom, onMove);
@@ -524,6 +558,12 @@ function DraggableYellowNote({
   const onMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     startDrag(e.clientX, e.clientY);
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    if (!t) return;
+    startDrag(t.clientX, t.clientY);
   };
 
   const onClick = (e: React.MouseEvent) => {
@@ -544,14 +584,15 @@ function DraggableYellowNote({
       rel="noopener noreferrer"
       draggable={false}
       onMouseDown={onMouseDown}
+      onTouchStart={onTouchStart}
       onClick={onClick}
       className="absolute block p-3 rounded-xl shadow-md hover:shadow-lg transition-shadow select-none"
       style={{
         left: x,
         top: y,
         width: NOTE_W,
-        background: POSTIT_YELLOW,
-        color: "#1c1c1c",
+        background: background ?? POSTIT_YELLOW,
+        color: foreground ?? "#1c1c1c",
         cursor: dragging ? "grabbing" : "grab",
       }}
     >
@@ -620,6 +661,12 @@ function DraggableImage({
         e.preventDefault();
         startDrag(e.clientX, e.clientY);
       }}
+      onTouchStart={(e) => {
+        if ((e.target as HTMLElement).closest("[data-no-drag]")) return;
+        const t = e.touches[0];
+        if (!t) return;
+        startDrag(t.clientX, t.clientY);
+      }}
       className="group absolute rounded-xl overflow-hidden shadow-md select-none"
       style={{
         left: x,
@@ -664,6 +711,7 @@ function GenericConnectorPath({
   itemY,
   zoom,
   onMove,
+  stroke = "#ffbcdf",
 }: {
   d: string;
   idx: number;
@@ -671,6 +719,7 @@ function GenericConnectorPath({
   itemY: number;
   zoom: number;
   onMove: (idx: number, x: number, y: number) => void;
+  stroke?: string;
 }) {
   const dragStart = useRef({ mx: 0, my: 0, nx: 0, ny: 0 });
   const [dragging, setDragging] = useState(false);
@@ -696,7 +745,7 @@ function GenericConnectorPath({
       <path
         d={d}
         fill="none"
-        stroke="#ffbcdf"
+        stroke={stroke}
         strokeWidth="2"
         strokeDasharray="4 6"
         opacity="0.8"
@@ -726,6 +775,8 @@ function DraggableTextNote({
   onMove,
   onTextChange,
   onRemove,
+  background,
+  foreground,
 }: {
   note: ProjectNote;
   x: number;
@@ -734,10 +785,13 @@ function DraggableTextNote({
   onMove: (x: number, y: number) => void;
   onTextChange: (text: string) => void;
   onRemove: () => void;
+  background?: string;
+  foreground?: string;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const { dragging, startDrag } = useBoardDrag(ref, zoom, onMove);
-  const bg = note.color ?? "#ffbcdf";
+  const bg = note.color ?? background ?? "#ffbcdf";
+  const fg = foreground ?? "#1c1c1c";
   const w = note.width ?? TEXT_NOTE_W;
   const h = note.height ?? TEXT_NOTE_H;
 
@@ -749,6 +803,12 @@ function DraggableTextNote({
         e.preventDefault();
         startDrag(e.clientX, e.clientY);
       }}
+      onTouchStart={(e) => {
+        if ((e.target as HTMLElement).closest("[data-no-drag]")) return;
+        const t = e.touches[0];
+        if (!t) return;
+        startDrag(t.clientX, t.clientY);
+      }}
       className="group absolute rounded-xl shadow-md select-none"
       style={{
         left: x,
@@ -756,17 +816,18 @@ function DraggableTextNote({
         width: w,
         minHeight: h,
         background: bg,
-        color: "#1c1c1c",
+        color: fg,
         cursor: dragging ? "grabbing" : "grab",
       }}
     >
+      <NoteClip parentWidth={w} stroke={fg} />
       <textarea
         data-no-drag
         value={note.text}
         onChange={(e) => onTextChange(e.target.value)}
         placeholder="Write a note..."
         className="w-full h-full bg-transparent resize-none outline-none p-3 text-[14px] font-medium placeholder:opacity-50"
-        style={{ minHeight: h, color: "#1c1c1c" }}
+        style={{ minHeight: h, color: fg }}
       />
       <button
         data-no-drag
@@ -778,5 +839,42 @@ function DraggableTextNote({
         ✕
       </button>
     </div>
+  );
+}
+
+function NoteClip({
+  parentWidth,
+  stroke,
+}: {
+  parentWidth: number;
+  stroke: string;
+}) {
+  const clipW = 24;
+  const clipH = 46;
+  const offsetX = Math.max(8, parentWidth - clipW - 18);
+  return (
+    <svg
+      aria-hidden="true"
+      width={clipW}
+      height={clipH}
+      viewBox="0 0 36 70"
+      style={{
+        position: "absolute",
+        top: -clipH * 0.32,
+        left: offsetX,
+        display: "block",
+        pointerEvents: "none",
+        overflow: "visible",
+        filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.25))",
+      }}
+    >
+      <path
+        d="M 10 8 Q 10 2 18 2 Q 26 2 26 8 L 26 50 Q 26 58 18 58 Q 10 58 10 50 L 10 16 Q 10 10 16 10 Q 22 10 22 16 L 22 46"
+        fill="none"
+        stroke={stroke}
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }

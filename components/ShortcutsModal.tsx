@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useI18n } from "@/lib/i18n";
+import { useEffect } from "react";
 
 type Props = {
   open: boolean;
@@ -15,7 +14,6 @@ type Shortcut = {
 };
 
 const SHORTCUTS: Shortcut[] = [
-  { keys: "Tab", description: "Navigate between pages", context: "Global" },
   { keys: "Shift + Tab", description: "Select next posit", context: "Board" },
   { keys: "Arrow keys", description: "Move selected posit (1px)", context: "Board" },
   { keys: "Shift + Arrows", description: "Move selected posit (10px)", context: "Board" },
@@ -24,13 +22,9 @@ const SHORTCUTS: Shortcut[] = [
   { keys: "Shift / Alt + Scroll", description: "Zoom in / out", context: "Board" },
   { keys: "Ctrl + .", description: "Create new task", context: "Global" },
   { keys: "Ctrl + Enter", description: "Save current task", context: "Task editor" },
-  { keys: "← →", description: "Navigate carousel", context: "Tasks" },
-  { keys: "Ctrl + ,", description: "Random task", context: "Tasks" },
 ];
 
 export function ShortcutsModal({ open, onClose }: Props) {
-  const { t } = useI18n();
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && open) onClose();
@@ -47,7 +41,8 @@ export function ShortcutsModal({ open, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="bg-white text-zinc-900 rounded-lg p-6 w-full max-w-md shadow-2xl"
+        className="rounded-lg p-6 w-full max-w-md shadow-2xl"
+        style={{ background: "var(--surface)", color: "var(--ink)", border: "1px solid var(--border)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-semibold mb-4">Keyboard Shortcuts</h2>
@@ -55,7 +50,10 @@ export function ShortcutsModal({ open, onClose }: Props) {
           {SHORTCUTS.map((s, i) => (
             <div key={i} className="flex items-center justify-between gap-4 py-1">
               <div className="flex items-center gap-2">
-                <kbd className="px-2 py-1 rounded border bg-zinc-100 font-mono text-xs font-semibold">
+                <kbd
+                  className="px-2 py-1 rounded font-mono text-xs font-semibold"
+                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+                >
                   {s.keys}
                 </kbd>
                 <span className="text-sm">{s.description}</span>
@@ -67,9 +65,10 @@ export function ShortcutsModal({ open, onClose }: Props) {
         <div className="flex justify-end mt-5">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded bg-zinc-900 text-white text-sm"
+            className="px-4 py-2 rounded text-sm font-medium transition-colors hover:opacity-90"
+            style={{ background: "#9ca3af", color: "#fff" }}
           >
-            {t("common.close") ?? "Close"}
+            Close
           </button>
         </div>
       </div>
