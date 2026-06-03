@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { animate } from "animejs";
 import type { Project } from "@/lib/types";
-import { postItStyle, progress, taskTextStyle, darken, lighten, isDarkColor } from "@/lib/colors";
+import { postItStyle, progress, taskTextStyle, darken, lighten, isDarkColor, textColorFor } from "@/lib/colors";
 import { useSettings } from "@/lib/storage";
 import { isWithinWorkHours } from "@/lib/today";
 import { recordOutsideHours } from "@/lib/outsideHours";
@@ -209,7 +209,12 @@ export function PostIt({
   const textPref = project.textColor ?? "auto";
   const onDark =
     textPref === "light" ? true : textPref === "dark" ? false : isDarkColor(style.bg);
-  const textOnBg = onDark ? "#ffffff" : "#1c1c1c";
+  const textOnBg =
+    textPref === "light"
+      ? "#ffffff"
+      : textPref === "dark"
+      ? "#1c1c1c"
+      : textColorFor(style.bg);
   const progressTrack = onDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.18)";
   const progressFill = onDark ? lighten(style.bg, 0.55) : darken(style.bg, 0.35);
   const dragDotColor = onDark ? "rgba(255,255,255,0.6)" : "rgba(28,28,28,0.5)";
@@ -536,13 +541,14 @@ export function PostIt({
             <button
               data-no-drag
               onClick={copyShareUrl}
-              className="shrink-0 inline-flex items-center gap-1.5 rounded-full font-black uppercase leading-none cursor-pointer"
+              className="shrink-0 inline-flex items-center gap-1.5 rounded-full uppercase leading-none cursor-pointer"
               style={{
-                height: 44,
-                padding: "0 14px",
+                height: 34,
+                padding: "0 11px",
                 background: progressFill,
                 color: style.bg,
-                fontSize: 13,
+                fontSize: 12,
+                fontWeight: 700,
                 letterSpacing: "0.04em",
                 fontFamily:
                   '"Delight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
@@ -552,12 +558,12 @@ export function PostIt({
               <span
                 aria-hidden="true"
                 style={{
-                  width: 8,
-                  height: 8,
+                  width: 7,
+                  height: 7,
                   borderRadius: "50%",
                   background: style.bg,
                   opacity: shareCopied ? 0.5 : 1,
-                  boxShadow: shareCopied ? "none" : `0 0 0 3px ${progressFill}, 0 0 0 5px ${style.bg}33`,
+                  boxShadow: shareCopied ? "none" : `0 0 0 2.5px ${progressFill}, 0 0 0 4px ${style.bg}33`,
                   animation: shareCopied ? "none" : "postit-live-pulse 1.6s ease-in-out infinite",
                 }}
               />
@@ -565,43 +571,50 @@ export function PostIt({
             </button>
           ) : indicatorMode === "tasks" ? (
             <span
-              className="shrink-0 inline-flex items-center justify-center rounded-full font-black tabular-nums leading-none"
+              className="shrink-0 inline-flex items-center justify-center rounded-full tabular-nums leading-none"
               style={{
-                width: 44,
-                height: 44,
+                height: 34,
+                padding: "0 12px",
                 background: progressFill,
                 color: style.bg,
-                fontSize: totalTasks < 10 ? 18 : 15,
-                lineHeight: 1,
-                letterSpacing: 0,
-                textAlign: "center",
+                fontSize: totalTasks < 10 ? 14 : 13,
+                fontWeight: 700,
+                letterSpacing: "0.02em",
                 fontFamily:
                   '"Delight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
               }}
               title={`${completedTasks} of ${totalTasks} tasks completed`}
             >
-              {completedTasks}/{totalTasks}
+              <span style={{ display: "inline-block", transform: "translateY(-0.04em)" }}>
+                {completedTasks}/{totalTasks}
+              </span>
             </span>
           ) : (
-            <span
-              className="shrink-0 inline-flex items-center justify-center rounded-full font-black tabular-nums leading-none"
-              style={{
-                width: 44,
-                height: 44,
-                background: progressFill,
-                color: style.bg,
-                fontSize:
-                  ageDays < 10 ? 28 : ageDays < 100 ? 20 : ageDays < 1000 ? 15 : 12,
-                lineHeight: 1,
-                letterSpacing: 0,
-                textAlign: "center",
-                fontFamily:
-                  '"Delight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-              }}
-              title={`${ageDays} day${ageDays === 1 ? "" : "s"} since creation`}
+            <svg
+              width={34}
+              height={34}
+              viewBox="0 0 34 34"
+              className="shrink-0"
+              role="img"
+              aria-label={`${ageDays} day${ageDays === 1 ? "" : "s"} since creation`}
             >
-              {ageDays}
-            </span>
+              <title>{`${ageDays} day${ageDays === 1 ? "" : "s"} since creation`}</title>
+              <circle cx={17} cy={17} r={17} fill={progressFill} />
+              <text
+                x={17}
+                y={17}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontFamily='"Delight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
+                fontWeight={700}
+                fontSize={
+                  ageDays < 10 ? 22 : ageDays < 100 ? 16 : ageDays < 1000 ? 12 : 10
+                }
+                fill={style.bg}
+              >
+                {ageDays}
+              </text>
+            </svg>
           )}
           <div className="flex-1" />
           <div

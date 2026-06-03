@@ -2,12 +2,22 @@ import type { CSSProperties } from "react";
 import type { DifficultyTag, Project } from "./types";
 
 export const POSTIT_PALETTE = [
-  "#b1d8b9", // sage green
-  "#9bccd0", // soft cyan
   "#1f4381", // navy
   "#e22028", // red
+  "#b1d8bb", // sage green
+  "#9bccd0", // soft cyan
   "#f6c343", // amber
 ] as const;
+
+// Default text color per palette background — overrides auto-luminance detection
+// when the card uses `textColor: "auto"` (the default).
+export const PALETTE_TEXT_COLORS: Record<string, string> = {
+  "#1f4381": "#dbb3b4", // navy → soft pink
+  "#e22028": "#98c8c8", // red → muted cyan
+  "#b1d8bb": "#d84c28", // sage → orange-red
+  "#9bccd0": "#e0202b", // cyan → bright red
+  "#f6c343": "#000000", // amber → black
+};
 
 export const POSTIT_YELLOW = "#ffea73";
 
@@ -50,6 +60,8 @@ function luminance(hex: string): number {
 }
 
 export function textColorFor(bg: string): string {
+  const mapped = PALETTE_TEXT_COLORS[bg.toLowerCase()];
+  if (mapped) return mapped;
   return isDarkColor(bg) ? "#ffffff" : "#1c1c1c";
 }
 

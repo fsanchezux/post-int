@@ -76,22 +76,24 @@ body {
 }
 
 /* Round + button (top-right of board) */
-.add-round {
-  width: 44px;
-  height: 44px;
-  border-radius: 9999px;
-  background: var(--postit-yellow);
-  color: #111;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.4rem;
-  line-height: 1;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  transition: transform 120ms ease;
-}
-.add-round:hover {
-  transform: scale(1.05);
+@layer components {
+  .add-round {
+    width: 44px;
+    height: 44px;
+    border-radius: 9999px;
+    background: #f6c343;
+    color: #111;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    line-height: 1;
+    box-shadow: none;
+    transition: transform 120ms ease;
+  }
+  .add-round:hover {
+    transform: scale(1.05);
+  }
 }
 
 /* Vertical zoom slider — sits on the right side of the whiteboard */
@@ -108,7 +110,7 @@ body {
 .vertical-zoom::-webkit-slider-runnable-track {
   width: 4px;
   height: 100%;
-  background: rgba(59, 171, 255, 0.35);
+  background: rgba(144, 190, 255, 0.35);
   border-radius: 9999px;
 }
 .vertical-zoom::-webkit-slider-thumb {
@@ -116,27 +118,27 @@ body {
   appearance: none;
   width: 18px;
   height: 18px;
-  background: #3babff;
+  background: #90beff;
   border-radius: 9999px;
-  border: 3px solid #fff;
+  border: none;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
   margin-left: -7px;
 }
 .vertical-zoom::-moz-range-track {
   width: 4px;
-  background: rgba(59, 171, 255, 0.35);
+  background: rgba(144, 190, 255, 0.35);
   border-radius: 9999px;
 }
 .vertical-zoom::-moz-range-progress {
-  background: rgba(59, 171, 255, 0.35);
+  background: rgba(144, 190, 255, 0.35);
   border-radius: 9999px;
 }
 .vertical-zoom::-moz-range-thumb {
   width: 18px;
   height: 18px;
-  background: #3babff;
+  background: #90beff;
   border-radius: 9999px;
-  border: 3px solid #fff;
+  border: none;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
 }
 

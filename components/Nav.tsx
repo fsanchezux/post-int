@@ -114,16 +114,29 @@ export function Nav() {
         </Link>
 
         {onBoard ? (
-          <div className="flex items-center gap-3 flex-1 justify-center max-w-2xl mx-auto">
+          <div className="flex-1 flex items-center gap-3 justify-center max-w-2xl mx-auto">
             <button
               onClick={() => window.dispatchEvent(new CustomEvent("shortcut:new-task"))}
-              className="add-round shrink-0"
+              className="add-round shrink-0 hidden sm:flex"
+              style={{ width: 34, height: 34 }}
               aria-label={t("home.createPosit")}
               title={t("home.createPosit")}
             >
-              +
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 18 18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <line x1="9" y1="3" x2="9" y2="15" />
+                <line x1="3" y1="9" x2="15" y2="9" />
+              </svg>
             </button>
-            <div className="relative flex-1 max-w-md">
+            <div className="relative flex-1 max-w-md hidden sm:block">
               <input
                 id="nav-search"
                 type="text"
@@ -155,7 +168,8 @@ export function Nav() {
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setShortcutsOpen(true)}
-            className="px-2 py-1 text-blue-600 hover:text-blue-800 text-xs font-semibold tracking-widest uppercase transition-colors"
+            className="hidden sm:inline-flex px-2 py-1 text-xs font-semibold tracking-widest uppercase transition-colors hover:opacity-80"
+            style={{ color: "#90beff" }}
             title="Keyboard shortcuts"
           >
             Shortcuts
@@ -163,7 +177,8 @@ export function Nav() {
           {loaded && connected ? (
             <button
               onClick={signOut}
-              className="px-2 py-1 text-blue-600 hover:text-blue-800 text-xs font-semibold tracking-widest uppercase transition-colors inline-flex items-center gap-1.5"
+              className="px-2 py-1 text-xs font-semibold tracking-widest uppercase transition-colors inline-flex items-center gap-1.5 hover:opacity-80"
+              style={{ color: "#90beff" }}
             >
               Log out
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -175,7 +190,8 @@ export function Nav() {
           ) : loaded ? (
             <a
               href="/api/auth/google"
-              className="px-2 py-1 text-blue-600 hover:text-blue-800 text-xs font-semibold tracking-widest uppercase transition-colors"
+              className="px-2 py-1 text-xs font-semibold tracking-widest uppercase transition-colors hover:opacity-80"
+              style={{ color: "#90beff" }}
             >
               Link account
             </a>
