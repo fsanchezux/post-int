@@ -51,6 +51,9 @@ export function CreatePostItModal({ open, onClose, onSave, initial }: Props) {
   const [estimatedHours, setEstimatedHours] = useState<string>("");
   const [links, setLinks] = useState<LinkRow[]>(EMPTY_LINKS);
   const [showProgress, setShowProgress] = useState(true);
+  const [titleWeight, setTitleWeight] = useState<"semibold" | "bold" | "extrabold">("extrabold");
+  const [textColor, setTextColor] = useState<"auto" | "dark" | "light">("auto");
+  const [shape, setShape] = useState<"auto" | "normal" | "spiral" | "clip" | "folder">("auto");
   const [color, setColor] = useState<PostItColor>(POSTIT_PALETTE[0]);
   const [tagging, setTagging] = useState(false);
 
@@ -67,6 +70,9 @@ export function CreatePostItModal({ open, onClose, onSave, initial }: Props) {
       setEstimatedHours(initial.estimatedHours?.toString() ?? "");
       setLinks(migrateLinks(initial));
       setShowProgress(initial.showProgress ?? true);
+      setTitleWeight(initial.titleWeight ?? "extrabold");
+      setTextColor(initial.textColor ?? "auto");
+      setShape(initial.shape ?? "auto");
       const initColor = (initial.color as PostItColor) ?? pickRandomColor();
       setColor(
         POSTIT_PALETTE.includes(initColor as PostItColor)
@@ -90,6 +96,9 @@ export function CreatePostItModal({ open, onClose, onSave, initial }: Props) {
       setEstimatedHours("");
       setLinks(EMPTY_LINKS);
       setShowProgress(true);
+      setTitleWeight("extrabold");
+      setTextColor("auto");
+      setShape("auto");
       setColor(pickRandomColor());
       setExistingTasks([]);
       setTasksText("");
@@ -113,6 +122,7 @@ export function CreatePostItModal({ open, onClose, onSave, initial }: Props) {
         setEstimatedHours("");
         setLinks(EMPTY_LINKS);
         setShowProgress(true);
+        setTitleWeight("extrabold");
         setColor(pickRandomColor());
         setExistingTasks([]);
         setTasksText("");
@@ -199,6 +209,9 @@ export function CreatePostItModal({ open, onClose, onSave, initial }: Props) {
       links: cleanLinks.length > 0 ? cleanLinks : undefined,
       link: undefined,
       showProgress,
+      titleWeight,
+      textColor,
+      shape,
       color,
       tasks: initial
         ? [...existingTasks.filter((t) => t.text.trim()), ...newTasks]
@@ -283,6 +296,90 @@ export function CreatePostItModal({ open, onClose, onSave, initial }: Props) {
                   }}
                 />
               ))}
+            </div>
+          </div>
+
+          <div>
+            <span className="text-sm font-medium">Text color</span>
+            <div className="mt-1 inline-flex rounded-md border overflow-hidden">
+              {([
+                { value: "auto", label: "Auto" },
+                { value: "dark", label: "Dark" },
+                { value: "light", label: "Light" },
+              ] as const).map((opt) => {
+                const active = textColor === opt.value;
+                return (
+                  <button
+                    type="button"
+                    key={opt.value}
+                    onClick={() => setTextColor(opt.value)}
+                    className="px-3 py-1.5 text-sm uppercase tracking-tight transition-colors"
+                    style={{
+                      background: active ? "#111" : "transparent",
+                      color: active ? "#fff" : "#1c1c1c",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <span className="text-sm font-medium">Shape</span>
+            <div className="mt-1 inline-flex rounded-md border overflow-hidden flex-wrap">
+              {([
+                { value: "auto", label: "Auto" },
+                { value: "normal", label: "Normal" },
+                { value: "clip", label: "Clip" },
+                { value: "spiral", label: "Spiral" },
+                { value: "folder", label: "Folder" },
+              ] as const).map((opt) => {
+                const active = shape === opt.value;
+                return (
+                  <button
+                    type="button"
+                    key={opt.value}
+                    onClick={() => setShape(opt.value)}
+                    className="px-3 py-1.5 text-sm uppercase tracking-tight transition-colors"
+                    style={{
+                      background: active ? "#111" : "transparent",
+                      color: active ? "#fff" : "#1c1c1c",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <span className="text-sm font-medium">Title weight</span>
+            <div className="mt-1 inline-flex rounded-md border overflow-hidden">
+              {([
+                { value: "semibold", label: "Semi", weight: 600 },
+                { value: "bold", label: "Bold", weight: 700 },
+                { value: "extrabold", label: "Extra", weight: 800 },
+              ] as const).map((opt) => {
+                const active = titleWeight === opt.value;
+                return (
+                  <button
+                    type="button"
+                    key={opt.value}
+                    onClick={() => setTitleWeight(opt.value)}
+                    className="px-3 py-1.5 text-sm uppercase tracking-tight transition-colors"
+                    style={{
+                      fontWeight: opt.weight,
+                      background: active ? "#111" : "transparent",
+                      color: active ? "#fff" : "#1c1c1c",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { animate } from "animejs";
 import type { Project } from "@/lib/types";
-import { postItStyle, progress, taskTextStyle } from "@/lib/colors";
+import { postItStyle, progress, taskTextStyle, darken, lighten, isDarkColor } from "@/lib/colors";
 import { useSettings } from "@/lib/storage";
 import { isWithinWorkHours } from "@/lib/today";
 import { recordOutsideHours } from "@/lib/outsideHours";
@@ -39,6 +39,7 @@ export function PostIt({
   const [dragging, setDragging] = useState(false);
   const [resizing, setResizing] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   const offset = useRef({ x: 0, y: 0 });
   const resizeStart = useRef({ x: 0, y: 0, w: 0, h: 0 });
   const dragMoved = useRef(false);
@@ -203,6 +204,55 @@ export function PostIt({
   const imageStack = showImageStack ? (project.images ?? []).slice(0, 2) : [];
   const stackHeight = height ?? 260;
 
+  const isSmall = width < 320 || (height ?? 260) < 240;
+  const isTiny = width < 260 || (height ?? 260) < 200;
+  const textPref = project.textColor ?? "auto";
+  const onDark =
+    textPref === "light" ? true : textPref === "dark" ? false : isDarkColor(style.bg);
+  const textOnBg = onDark ? "#ffffff" : "#1c1c1c";
+  const progressTrack = onDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.18)";
+  const progressFill = onDark ? lighten(style.bg, 0.55) : darken(style.bg, 0.35);
+  const dragDotColor = onDark ? "rgba(255,255,255,0.6)" : "rgba(28,28,28,0.5)";
+
+  const createdMs = new Date(project.createdAt).getTime();
+  const ageDays = Number.isFinite(createdMs)
+    ? Math.max(0, Math.floor((Date.now() - createdMs) / 86_400_000))
+    : 0;
+
+  const totalTasks = project.tasks.length;
+  const completedTasks = project.tasks.filter((t) => t.done).length;
+  const hasShare = !!project.shareId;
+  const hasTaskProgress = totalTasks > 0 && completedTasks > 0;
+  const indicatorMode: "share" | "tasks" | "days" = hasShare
+    ? "share"
+    : hasTaskProgress
+    ? "tasks"
+    : "days";
+
+  const hasImages = (project.images?.length ?? 0) > 0;
+  const shapePref = project.shape ?? "auto";
+  const effectiveShape: "normal" | "spiral" | "clip" | "folder" =
+    shapePref === "auto"
+      ? hasImages
+        ? "folder"
+        : totalTasks > 0
+        ? "spiral"
+        : "clip"
+      : shapePref;
+
+  const copyShareUrl = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!project.shareId) return;
+    const url = `${window.location.origin}/share/${project.shareId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      window.prompt("Copy this link:", url);
+    }
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 1600);
+  };
+
   return (
     <>
       {imageStack.map((img, i) => {
@@ -253,38 +303,211 @@ export function PostIt({
         width,
         height: height ?? "auto",
         background: style.bg,
-        color: style.text,
+        color: textOnBg,
         cursor: interactive ? (dragging ? "grabbing" : "grab") : "default",
         zIndex: zIndex ?? 0,
-        borderRadius: 18,
-        boxShadow: dragging
-          ? "0 18px 36px rgba(0,0,0,.28)"
-          : selected
-          ? "0 0 0 3px #ffea73, 0 8px 22px rgba(0,0,0,.18)"
-          : "0 6px 18px rgba(0,0,0,.14)",
+        borderRadius: effectiveShape === "folder" ? "0 18px 18px 18px" : "18px",
+        boxShadow: selected ? "0 0 0 3px #ffea73" : "none",
       }}
       className="absolute select-none p-6 flex flex-col"
     >
-      <div className="font-black leading-[1.05] tracking-tight text-[28px] break-words">
-        {project.paid && <span className="mr-1" aria-label="paid">💰</span>}
+      {effectiveShape === "folder" && (() => {
+        const tabH = 26;
+        const tabW = Math.round(width * 0.5);
+        const flare = Math.round(tabH * 1.1);
+        const rTL = 14;
+        const overlap = 2;
+        const totalH = tabH + overlap;
+        const totalW = tabW + flare;
+        const cx = tabW + flare * 0.35;
+        const cy = tabH * 0.15;
+        return (
+          <svg
+            aria-hidden="true"
+            width={totalW}
+            height={totalH}
+            viewBox={`0 0 ${totalW} ${totalH}`}
+            style={{
+              position: "absolute",
+              top: -tabH,
+              left: 0,
+              display: "block",
+              pointerEvents: "none",
+              overflow: "visible",
+            }}
+          >
+            <path
+              d={`M 0 ${totalH} L 0 ${rTL} Q 0 0 ${rTL} 0 L ${tabW} 0 Q ${cx} ${cy} ${totalW} ${tabH} L ${totalW} ${totalH} Z`}
+              fill={style.bg}
+            />
+          </svg>
+        );
+      })()}
+
+      {effectiveShape === "spiral" && (() => {
+        const cardH = height ?? 260;
+        const coilCount = Math.max(12, Math.min(28, Math.round(cardH / 13)));
+        const margin = 8;
+        const usable = cardH - margin * 2;
+        const step = usable / (coilCount - 1);
+        const loopExtendsLeft = 12;
+        const holeInsideCard = 9;
+        const cardEdgeX = loopExtendsLeft;
+        const holeX = cardEdgeX + holeInsideCard;
+        const svgW = loopExtendsLeft + holeInsideCard + 6;
+        const clipId = `spiralClip-${project.id}`;
+        return (
+          <svg
+            aria-hidden="true"
+            width={svgW}
+            height={cardH}
+            viewBox={`0 0 ${svgW} ${cardH}`}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: -loopExtendsLeft,
+              display: "block",
+              pointerEvents: "none",
+              overflow: "visible",
+            }}
+          >
+            <defs>
+              {Array.from({ length: coilCount - 1 }).map((_, i) => {
+                const cy1 = margin + i * step;
+                const cy2 = margin + (i + 1) * step;
+                const midY = (cy1 + cy2) / 2;
+                return (
+                  <clipPath id={`${clipId}-${i}`} key={i}>
+                    {/* Allow rendering everywhere LEFT of the card edge, plus only the TOP HALF (above midY) of the card area.
+                        Effect: the first half of the arc (top, near hole[i]) sits in front of the card; the second half
+                        (bottom, near hole[i+1]) gets clipped at the card edge, looking like it goes behind. */}
+                    <polygon
+                      points={`-100,-100 100,-100 100,${midY} ${cardEdgeX},${midY} ${cardEdgeX},${cardH + 100} -100,${cardH + 100}`}
+                    />
+                  </clipPath>
+                );
+              })}
+            </defs>
+            {/* Arcs joining hole[i] to hole[i+1] — each arc: first node in FRONT, second node BEHIND */}
+            {Array.from({ length: coilCount - 1 }).map((_, i) => {
+              const cy1 = margin + i * step;
+              const cy2 = margin + (i + 1) * step;
+              const d = `
+                M ${holeX - 1} ${cy1 + 1}
+                C ${1} ${cy1 + step * 0.2},
+                  ${1} ${cy2 - step * 0.2},
+                  ${holeX - 1} ${cy2 - 1}
+              `;
+              return (
+                <path
+                  key={`w${i}`}
+                  d={d}
+                  fill="none"
+                  stroke="#0a0a0a"
+                  strokeWidth="3.6"
+                  strokeLinecap="round"
+                  clipPath={`url(#${clipId}-${i})`}
+                />
+              );
+            })}
+            {/* Punched paper holes — on top of the card, not clipped */}
+            {Array.from({ length: coilCount }).map((_, i) => {
+              const cy = margin + i * step;
+              return (
+                <g key={`h${i}`}>
+                  <ellipse
+                    cx={holeX}
+                    cy={cy}
+                    rx={3.2}
+                    ry={2.6}
+                    fill="rgba(0,0,0,0.65)"
+                  />
+                  <ellipse
+                    cx={holeX}
+                    cy={cy - 0.7}
+                    rx={2.5}
+                    ry={1.9}
+                    fill="rgba(255,255,255,0.08)"
+                  />
+                </g>
+              );
+            })}
+          </svg>
+        );
+      })()}
+
+      {effectiveShape === "clip" && (() => {
+        const clipW = 36;
+        const clipH = 70;
+        const offsetX = Math.max(0, width - clipW - 30);
+        return (
+          <svg
+            aria-hidden="true"
+            width={clipW}
+            height={clipH}
+            viewBox="0 0 36 70"
+            style={{
+              position: "absolute",
+              top: -clipH * 0.18,
+              left: offsetX,
+              display: "block",
+              pointerEvents: "none",
+              overflow: "visible",
+              filter: "drop-shadow(0 3px 4px rgba(0,0,0,0.25))",
+            }}
+          >
+            <path
+              d="M 10 8 Q 10 2 18 2 Q 26 2 26 8 L 26 50 Q 26 58 18 58 Q 10 58 10 50 L 10 16 Q 10 10 16 10 Q 22 10 22 16 L 22 46"
+              fill="none"
+              stroke="#1c1c1c"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+          </svg>
+        );
+      })()}
+      <div
+        className="tracking-tight break-words pr-10"
+        style={{
+          fontFamily: '"Delight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+          fontWeight:
+            project.titleWeight === "semibold"
+              ? 600
+              : project.titleWeight === "bold"
+              ? 700
+              : 800,
+          fontSize: isTiny ? 28 : isSmall ? 34 : 40,
+          lineHeight: 0.95,
+          letterSpacing: "-0.02em",
+          textTransform: "uppercase",
+        }}
+      >
         {project.name}
       </div>
 
-      {project.description && showDescription && (
+      {project.description && showDescription && !isTiny && (
         <p
           data-no-drag
           className="mt-3 text-[15px] leading-snug whitespace-pre-wrap"
-          style={{ color: "#1c1c1c", opacity: 0.72, fontWeight: 500 }}
+          style={{
+            color: textOnBg,
+            opacity: 0.72,
+            fontWeight: 500,
+            display: "-webkit-box",
+            WebkitBoxOrient: "vertical",
+            WebkitLineClamp: isSmall ? 2 : 5,
+            overflow: "hidden",
+          }}
         >
           {project.description}
         </p>
       )}
 
       <div data-no-drag className="mt-5 flex-1 min-h-0">
-        {project.tasks.length > 0 ? (
+        {project.tasks.length > 0 && !isTiny ? (
           <ul className="space-y-3 overflow-auto max-h-full">
             {project.tasks.map((task) => {
-              const ts = taskTextStyle(task.autoTag, task.done);
+              const ts = taskTextStyle(task.autoTag, task.done, onDark);
               return (
                 <li key={task.id} className="flex items-center gap-3 text-[14px]">
                   <input
@@ -292,9 +515,12 @@ export function PostIt({
                     checked={task.done}
                     onChange={() => toggleTask(task.id)}
                     className="w-4 h-4 shrink-0 rounded-sm"
-                    style={{ accentColor: "#1c1c1c", opacity: 0.45 }}
+                    style={{ accentColor: textOnBg, opacity: 0.55 }}
                   />
-                  <span className={`flex-1 ${ts.className}`} style={ts.style}>
+                  <span
+                    className={`flex-1 truncate ${ts.className}`}
+                    style={ts.style}
+                  >
                     {task.text}
                   </span>
                 </li>
@@ -305,34 +531,108 @@ export function PostIt({
       </div>
 
       {showProgress && (
-        <div className="mt-5 flex flex-col items-center gap-1">
-          <span
-            className="text-[11px] font-mono"
-            style={{ color: "#1c1c1c", opacity: 0.55 }}
-          >
-            {pct}%
-          </span>
+        <div className="mt-5 flex items-center gap-3">
+          {indicatorMode === "share" ? (
+            <button
+              data-no-drag
+              onClick={copyShareUrl}
+              className="shrink-0 inline-flex items-center gap-1.5 rounded-full font-black uppercase leading-none cursor-pointer"
+              style={{
+                height: 44,
+                padding: "0 14px",
+                background: progressFill,
+                color: style.bg,
+                fontSize: 13,
+                letterSpacing: "0.04em",
+                fontFamily:
+                  '"Delight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+              }}
+              title={shareCopied ? "Link copied!" : "Copy share link"}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: style.bg,
+                  opacity: shareCopied ? 0.5 : 1,
+                  boxShadow: shareCopied ? "none" : `0 0 0 3px ${progressFill}, 0 0 0 5px ${style.bg}33`,
+                  animation: shareCopied ? "none" : "postit-live-pulse 1.6s ease-in-out infinite",
+                }}
+              />
+              {shareCopied ? "Copied" : "Live"}
+            </button>
+          ) : indicatorMode === "tasks" ? (
+            <span
+              className="shrink-0 inline-flex items-center justify-center rounded-full font-black tabular-nums leading-none"
+              style={{
+                width: 44,
+                height: 44,
+                background: progressFill,
+                color: style.bg,
+                fontSize: totalTasks < 10 ? 18 : 15,
+                lineHeight: 1,
+                letterSpacing: 0,
+                textAlign: "center",
+                fontFamily:
+                  '"Delight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+              }}
+              title={`${completedTasks} of ${totalTasks} tasks completed`}
+            >
+              {completedTasks}/{totalTasks}
+            </span>
+          ) : (
+            <span
+              className="shrink-0 inline-flex items-center justify-center rounded-full font-black tabular-nums leading-none"
+              style={{
+                width: 44,
+                height: 44,
+                background: progressFill,
+                color: style.bg,
+                fontSize:
+                  ageDays < 10 ? 28 : ageDays < 100 ? 20 : ageDays < 1000 ? 15 : 12,
+                lineHeight: 1,
+                letterSpacing: 0,
+                textAlign: "center",
+                fontFamily:
+                  '"Delight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+              }}
+              title={`${ageDays} day${ageDays === 1 ? "" : "s"} since creation`}
+            >
+              {ageDays}
+            </span>
+          )}
+          <div className="flex-1" />
           <div
-            className="w-full h-[3px] rounded-full overflow-hidden"
-            style={{ background: "rgba(0,0,0,.18)" }}
+            className="h-[16px] rounded-full overflow-hidden"
+            style={{ background: progressTrack, width: "45%" }}
           >
             <div
-              className="h-full"
-              style={{ width: `${pct}%`, background: "#1c1c1c" }}
+              className="h-full rounded-full"
+              style={{
+                width: `${pct}%`,
+                background: progressFill,
+                transition: "width 320ms ease",
+              }}
             />
           </div>
         </div>
       )}
 
-      {project.shareId && (
-        <span
-          className="absolute top-3 right-4 text-[9px] uppercase font-semibold px-1.5 py-0.5 rounded"
-          style={{ background: "#111", color: "#fff" }}
-          title="Publicly shared"
-        >
-          live
-        </span>
-      )}
+      <div
+        className="absolute top-4 right-4 grid grid-cols-2 gap-[3px] pointer-events-none"
+        aria-hidden="true"
+        title="Drag"
+      >
+        {Array.from({ length: 6 }).map((_, i) => (
+          <span
+            key={i}
+            className="block rounded-full"
+            style={{ width: 4, height: 4, background: dragDotColor }}
+          />
+        ))}
+      </div>
 
       {interactive && (
         <div

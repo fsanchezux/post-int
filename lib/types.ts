@@ -52,6 +52,9 @@ export type Project = {
   notes?: ProjectNote[];
   showProgress?: boolean;
   showDescription?: boolean;
+  titleWeight?: "semibold" | "bold" | "extrabold";
+  textColor?: "auto" | "dark" | "light";
+  shape?: "auto" | "normal" | "spiral" | "clip" | "folder";
   shareId?: string;
   tasks: Task[];
   position: { x: number; y: number };
