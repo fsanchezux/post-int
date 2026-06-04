@@ -51,6 +51,51 @@ function readFileAsDataURL(file: File): Promise<string> {
   });
 }
 
+const MAX_IMAGE_DIM = 1200;
+const IMAGE_QUALITY = 0.85;
+
+// Downscale + re-encode big images to JPEG so they don't blow up
+// localStorage. Pictures from phones can easily be 4–8 MB raw; this
+// brings them down to ~100–300 KB with no visible loss for sticky-note
+// sized previews.
+async function compressImage(file: File): Promise<string> {
+  // Skip work for tiny files already under 200 KB.
+  if (file.size < 200 * 1024) return readFileAsDataURL(file);
+  // SVGs can't be drawn through canvas without losing fidelity; keep raw.
+  if (file.type === "image/svg+xml") return readFileAsDataURL(file);
+
+  const original = await readFileAsDataURL(file);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const ratio = Math.min(
+        1,
+        MAX_IMAGE_DIM / img.width,
+        MAX_IMAGE_DIM / img.height
+      );
+      const w = Math.round(img.width * ratio);
+      const h = Math.round(img.height * ratio);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(original);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      // Prefer JPEG for photos (smaller), keep PNG only if the source had
+      // transparency we'd lose.
+      const mime = file.type === "image/png" ? "image/png" : "image/jpeg";
+      const out = canvas.toDataURL(mime, IMAGE_QUALITY);
+      // If compression somehow made it bigger (rare), keep the original.
+      resolve(out.length < original.length ? out : original);
+    };
+    img.onerror = () => resolve(original);
+    img.src = original;
+  });
+}
+
 export function PositDetailView({
   project,
   onUpdate,
@@ -211,7 +256,7 @@ export function PositDetailView({
       const imgs: ProjectImage[] = [];
       for (const f of files) {
         if (!f.type.startsWith("image/")) continue;
-        const src = await readFileAsDataURL(f);
+        const src = await compressImage(f);
         imgs.push({ id: uid(), src });
       }
       if (imgs.length === 0) return;

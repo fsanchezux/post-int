@@ -5,6 +5,7 @@ import { SyncProvider } from "@/components/SyncProvider";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { BoardUIProvider } from "@/components/BoardUIContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { StorageQuotaToast } from "@/components/StorageQuotaToast";
 import { I18nProvider } from "@/lib/i18n";
 import { useSettings } from "@/lib/storage";
 import type { Language } from "@/lib/types";
@@ -34,6 +35,7 @@ export function Providers({ children }: { children: ReactNode }) {
           <ConfirmProvider>
             <BoardUIProvider>
               {children}
+              <StorageQuotaToast />
             </BoardUIProvider>
           </ConfirmProvider>
         </ThemeProvider>

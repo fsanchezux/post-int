@@ -44,11 +44,42 @@ function readJSON<T>(key: string, fallback: T): T {
   }
 }
 
+export const STORAGE_QUOTA_EVENT = "pmw:storage-quota";
+
 function writeJSON<T>(key: string, value: T) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(value));
-  if (key !== UPDATED_AT_KEY && key in Object.fromEntries(Object.entries(SYNCED_KEYS).map(([k, v]) => [v, k]))) {
-    window.localStorage.setItem(UPDATED_AT_KEY, new Date().toISOString());
+  const payload = JSON.stringify(value);
+  try {
+    window.localStorage.setItem(key, payload);
+    if (key !== UPDATED_AT_KEY && key in Object.fromEntries(Object.entries(SYNCED_KEYS).map(([k, v]) => [v, k]))) {
+      window.localStorage.setItem(UPDATED_AT_KEY, new Date().toISOString());
+    }
+  } catch (e) {
+    // Quota exceeded (~5 MB on most browsers). Most common cause: large
+    // base64 images embedded in projects. Surface a warning event so the UI
+    // can react, but don't crash the render.
+    if (
+      e instanceof DOMException &&
+      (e.name === "QuotaExceededError" ||
+        e.name === "NS_ERROR_DOM_QUOTA_REACHED")
+    ) {
+      const sizeKB = Math.round(payload.length / 1024);
+      console.warn(
+        `[storage] quota exceeded writing ${key} (${sizeKB} KB). ` +
+          "Consider removing images or compressing them."
+      );
+      try {
+        window.dispatchEvent(
+          new CustomEvent(STORAGE_QUOTA_EVENT, {
+            detail: { key, sizeKB },
+          })
+        );
+      } catch {
+        // ignore — event dispatch shouldn't break the write path
+      }
+      return;
+    }
+    throw e;
   }
 }
 
