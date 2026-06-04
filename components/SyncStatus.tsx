@@ -1,8 +1,10 @@
 "use client";
 
 import { useSync } from "./SyncProvider";
+import { signInWithGoogle } from "@/lib/supabase/auth";
 
-function timeAgo(d: Date) {
+function timeAgo(iso: string) {
+  const d = new Date(iso);
   const s = Math.floor((Date.now() - d.getTime()) / 1000);
   if (s < 60) return "ahora";
   const m = Math.floor(s / 60);
@@ -36,29 +38,21 @@ export function SyncStatus() {
       label = lastSync ? timeAgo(lastSync) : "";
       dotClass = "bg-emerald-500";
       title = lastSync
-        ? `Última sincronización: ${lastSync.toLocaleTimeString("es-ES")}`
+        ? `Última sincronización: ${new Date(lastSync).toLocaleTimeString("es-ES")}`
         : "Sincronizado";
       break;
     case "disconnected":
       return (
-        <a
-          href="/api/auth/google"
+        <button
+          onClick={() => signInWithGoogle().catch(() => {})}
           className="text-xs px-2 py-0.5 rounded border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          title="Conecta Google para sincronizar entre dispositivos"
+          title="Conecta tu cuenta para sincronizar entre dispositivos"
         >
           ☁ Conectar
-        </a>
+        </button>
       );
-    case "scope-missing":
-      return (
-        <a
-          href="/api/auth/google"
-          className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 hover:bg-amber-200"
-          title="Reautoriza para activar la sincronización en Drive"
-        >
-          ⚠ Reautoriza
-        </a>
-      );
+    case "not-configured":
+      return null;
     case "error":
       label = "Error";
       dotClass = "bg-red-500";
