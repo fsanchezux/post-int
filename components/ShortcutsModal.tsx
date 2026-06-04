@@ -18,6 +18,7 @@ const SHORTCUTS: Shortcut[] = [
   { keys: "Arrow keys", description: "Move selected posit (1px)", context: "Board" },
   { keys: "Shift + Arrows", description: "Move selected posit (10px)", context: "Board" },
   { keys: "Shift + Space", description: "Cycle posit z-index (front/back)", context: "Board" },
+  { keys: "Space + Drag", description: "Pan the board", context: "Board" },
   { keys: "Escape", description: "Deselect posit / Close modal", context: "Global" },
   { keys: "Shift / Alt + Scroll", description: "Zoom in / out", context: "Board" },
   { keys: "Ctrl + .", description: "Create new task", context: "Global" },

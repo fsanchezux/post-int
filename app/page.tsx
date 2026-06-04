@@ -28,6 +28,11 @@ export default function Home() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState<number | null>(null);
   const [userAdjusted, setUserAdjusted] = useState(false);
+  // Figma-style hold-Space + drag pan.
+  const [spaceHeld, setSpaceHeld] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const panStart = useRef({ mx: 0, my: 0, ox: 0, oy: 0 });
 
   useEffect(() => {
     const saved = localStorage.getItem("board-zoom");
@@ -146,12 +151,28 @@ export default function Home() {
         return;
       }
 
+      if (e.code === "Space" && !e.shiftKey && !e.repeat) {
+        e.preventDefault();
+        setSpaceHeld(true);
+        return;
+      }
+
       if (e.key === "Escape") {
         setSelectedId(null);
       }
     };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        setSpaceHeld(false);
+        setIsPanning(false);
+      }
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKeyUp);
+    };
   }, [projects, selectedId, focusedId, updateProject]);
 
   useEffect(() => {
@@ -170,6 +191,38 @@ export default function Home() {
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
+
+  // Space + drag → pan. Listens on the container while space is held.
+  useEffect(() => {
+    if (!isPanning) return;
+    const onMove = (e: MouseEvent) => {
+      const dx = e.clientX - panStart.current.mx;
+      const dy = e.clientY - panStart.current.my;
+      setPanOffset({
+        x: panStart.current.ox + dx,
+        y: panStart.current.oy + dy,
+      });
+    };
+    const onUp = () => setIsPanning(false);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [isPanning]);
+
+  const onContainerMouseDown = (e: React.MouseEvent) => {
+    if (!spaceHeld) return;
+    e.preventDefault();
+    panStart.current = {
+      mx: e.clientX,
+      my: e.clientY,
+      ox: panOffset.x,
+      oy: panOffset.y,
+    };
+    setIsPanning(true);
+  };
 
   const handleSave = (project: Project) => {
     if (editing) {
@@ -214,14 +267,25 @@ export default function Home() {
   return (
     <main>
       <section className="max-w-7xl mx-auto px-6 pb-10">
-        <div ref={containerRef} className="whiteboard relative">
+        <div
+          ref={containerRef}
+          className="whiteboard relative"
+          onMouseDown={onContainerMouseDown}
+          style={{
+            cursor: isPanning ? "grabbing" : spaceHeld ? "grab" : undefined,
+          }}
+        >
           <div
             ref={boardRef}
             style={{
-              transform: zoom !== null ? `scale(${zoom})` : "scale(1)",
+              transform:
+                zoom !== null
+                  ? `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`
+                  : `translate(${panOffset.x}px, ${panOffset.y}px) scale(1)`,
               transformOrigin: "top left",
               width: zoom !== null ? `${100 / zoom}%` : "100%",
               height: zoom !== null ? `${100 / zoom}%` : "100%",
+              pointerEvents: spaceHeld ? "none" : undefined,
             }}
           >
             {hydrated &&
@@ -253,7 +317,11 @@ export default function Home() {
           <VerticalZoom
             value={zoom ?? 1}
             onChange={(v) => { setUserAdjusted(true); setZoom(v); }}
-            onFit={() => { setUserAdjusted(false); calculateInitialFit(); }}
+            onFit={() => {
+              setUserAdjusted(false);
+              setPanOffset({ x: 0, y: 0 });
+              calculateInitialFit();
+            }}
           />
         </div>
       </section>
