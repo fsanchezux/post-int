@@ -52,3 +52,7 @@ Organize your **project moodboards** with simple Posts-its. Share them and break
 ## License
 
 MIT — see [LICENSE](./LICENSE).
+
+
+<img width="1923" height="1085" alt="credits" src="https://github.com/user-attachments/assets/d6c172d2-7ed5-4b33-872a-1b260580d22b" />
+
